@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addGable, addMesh, addSash } from '../parts'
+import { addEaves, addGable, addMesh, addPlanter, addSash } from '../parts'
 
 export function buildRange(
   parent: THREE.Object3D,
@@ -31,6 +31,9 @@ export function buildRange(
     depthWrite: false,
   })
   glass.side = THREE.DoubleSide
+  const metal = standard(disposal, { color: '#6e675f', roughness: 0.42, metalness: 0.4 })
+  const leaf = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.8 })
+  const pot = surfaceMaterial(disposal, atlas.weathered)
 
   addMesh(group, disposal.geo(new THREE.BoxGeometry(3.55, 0.12, 2.7)), wood, [0, 0.12, 0])
   const pane = disposal.geo(new THREE.PlaneGeometry(3.2, 1.55))
@@ -54,6 +57,8 @@ export function buildRange(
   addMesh(group, disposal.geo(new THREE.BoxGeometry(3.2, 0.045, 0.045)), trim, [0, 1.05, 1.24])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(0.045, 1.55, 2.3)), trim, [0, 1.05, 0])
   addGable(group, disposal, roof, 3.9, 3.05, 1.9, trim, wood)
+  addEaves(group, disposal, metal, 3.9, 3.05, 1.9, [1.75, 1.59])
+  addPlanter(group, disposal, pot, leaf, [2.15, 0, 1.85])
 
   const lampMaterial = standard(disposal, {
     color: '#ffb15a',

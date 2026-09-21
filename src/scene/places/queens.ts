@@ -5,7 +5,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addCornerBoards, addGable, addMesh, addSash } from '../parts'
+import { addCornerBoards, addEaves, addGable, addMesh, addPlanter, addSash } from '../parts'
 
 export function buildQueens(
   parent: THREE.Object3D,
@@ -30,11 +30,16 @@ export function buildQueens(
     metalness: 0,
     envMapIntensity: 1.75,
   })
+  const metal = standard(disposal, { color: '#6e675f', roughness: 0.42, metalness: 0.4 })
+  const leaf = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.8 })
 
   addMesh(group, disposal.geo(new THREE.BoxGeometry(3.5, 0.18, 2.7)), stone, [0, 0.1, 0])
   addMesh(group, disposal.geo(new RoundedBoxGeometry(3.3, 2.05, 2.5, 2, 0.06)), stone, [0, 1.12, 0])
   addCornerBoards(group, disposal, trim, 3.32, 2.52, 0.2, 2.08)
   addGable(group, disposal, roof, 3.75, 2.95, 2.08, trim, stone)
+  addEaves(group, disposal, metal, 3.75, 2.95, 2.08, [1.65, 1.54])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 0.12, 0.4)), stone, [0, 0.08, 1.62])
+  addPlanter(group, disposal, stone, leaf, [-1.35, 0, 1.72])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 1.35, 0.08)), opening, [0, 0.78, 1.28], {
     cast: false,
   })

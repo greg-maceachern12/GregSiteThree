@@ -68,6 +68,18 @@ export function addGable(
     addMesh(parent, barge, trim, [x, midY, -run / 2], { rotation: [-angle, 0, 0] })
   }
 
+  const courses = disposal.geo(new THREE.BoxGeometry(width - 0.14, 0.03, 0.08))
+  for (const sign of [1, -1] as const) {
+    const slopeGroup = new THREE.Group()
+    slopeGroup.position.set(0, midY, (sign * run) / 2)
+    slopeGroup.rotation.x = sign * angle
+    parent.add(slopeGroup)
+    for (let i = 0; i < 4; i++) {
+      const along = -slopeLength / 2 + ((i + 1) / 5) * slopeLength
+      addMesh(slopeGroup, courses, material, [0, 0.07, along])
+    }
+  }
+
   const gable = gableGeometry(disposal, run - 0.16, rise - 0.04)
   addMesh(parent, gable, ends, [width / 2 - 0.08, baseY, 0], { cast: false, receive: false })
   addMesh(parent, gable, ends, [-width / 2 + 0.08, baseY, 0], {
@@ -146,6 +158,72 @@ export function addDoor(
   addMesh(group, disposal.geo(new THREE.BoxGeometry(width - 0.06, height - 0.08, 0.04)), panel, [0, -0.02, 0.01])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(width * 0.55, height * 0.28, 0.03)), trim, [0, height * 0.16, 0.03])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(width + 0.2, 0.08, 0.22)), trim, [0, -height / 2 - 0.02, 0.08])
+}
+
+export function addEaves(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  metal: THREE.Material,
+  width: number,
+  depth: number,
+  baseY: number,
+  spout: [number, number],
+) {
+  const run = depth / 2
+  const gutter = disposal.geo(new THREE.BoxGeometry(width, 0.07, 0.1))
+  addMesh(parent, gutter, metal, [0, baseY - 0.06, run + 0.06])
+  addMesh(parent, gutter, metal, [0, baseY - 0.06, -run - 0.06])
+  const top = baseY - 0.06
+  const bottom = 0.18
+  addMesh(
+    parent,
+    disposal.geo(new THREE.CylinderGeometry(0.04, 0.045, top - bottom, 6)),
+    metal,
+    [spout[0], (top + bottom) / 2, spout[1]],
+  )
+  addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.1, 0.05, 0.12)), metal, [spout[0], top, spout[1]])
+}
+
+export function addSconce(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  metal: THREE.Material,
+  glow: THREE.Material,
+  position: [number, number, number],
+  face: Face,
+  lit = false,
+) {
+  const group = new THREE.Group()
+  group.position.set(position[0], position[1], position[2])
+  group.rotation.y = FACE_YAW[face]
+  parent.add(group)
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.08, 0.16, 0.06)), metal, [0, 0, 0])
+  addMesh(group, disposal.geo(new THREE.SphereGeometry(0.07, 8, 6)), glow, [0, -0.02, 0.08], {
+    cast: false,
+  })
+  if (!lit) return
+  const light = new THREE.PointLight('#ffb15e', 1.1, 3.2, 2)
+  light.position.set(0, -0.02, 0.12)
+  group.add(light)
+}
+
+export function addPlanter(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  pot: THREE.Material,
+  leaf: THREE.Material,
+  position: [number, number, number],
+) {
+  addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.42, 0.28, 0.42)), pot, [
+    position[0],
+    position[1] + 0.14,
+    position[2],
+  ])
+  addMesh(parent, disposal.geo(new THREE.SphereGeometry(0.22, 8, 6)), leaf, [
+    position[0],
+    position[1] + 0.38,
+    position[2],
+  ])
 }
 
 export function addCornerBoards(

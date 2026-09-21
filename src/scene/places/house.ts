@@ -5,7 +5,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addCornerBoards, addDoor, addGable, addMesh, addSash } from '../parts'
+import { addCornerBoards, addDoor, addEaves, addGable, addMesh, addPlanter, addSash, addSconce } from '../parts'
 
 export function buildHouse(
   parent: THREE.Object3D,
@@ -38,6 +38,8 @@ export function buildHouse(
     metalness: 0.02,
   })
   const doorPanel = standard(disposal, { color: '#6d4a34', roughness: 0.72, metalness: 0.03 })
+  const metal = standard(disposal, { color: '#6e675f', roughness: 0.42, metalness: 0.4 })
+  const leaf = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.8 })
 
   addMesh(group, disposal.geo(new THREE.BoxGeometry(6.55, 0.22, 4.4)), stone, [0, 0.14, 0])
   addMesh(
@@ -48,6 +50,7 @@ export function buildHouse(
   )
   addCornerBoards(group, disposal, trim, 6.32, 4.18, 0.28, 2.58)
   addGable(group, disposal, roof, 6.85, 4.7, 2.58, trim, siding)
+  addEaves(group, disposal, metal, 6.85, 4.7, 2.58, [-3.2, 2.41])
 
   const chimney = addMesh(
     group,
@@ -88,6 +91,9 @@ export function buildHouse(
   addDoor(group, disposal, trim, doorPanel, [-1.15, 0.78, -2.1], '-z', 0.58, 1.12)
   addSash(group, disposal, trim, glass, [3.18, 1.55, 0.35], '+x', 0.5, 0.68)
   addSash(group, disposal, trim, glass, [-3.18, 1.55, -0.2], '-x', 0.5, 0.68)
+  addSconce(group, disposal, metal, warm, [-0.55, 1.78, -2.16], '-z', true)
+  addPlanter(group, disposal, weathered, leaf, [2.55, 0, 2.5])
+  addPlanter(group, disposal, weathered, leaf, [1.45, 0.48, -3.2])
 
   const lamp = new THREE.PointLight('#ffb15e', 2.2, 5.5, 2)
   lamp.position.set(0.6, 1.8, 1.2)
