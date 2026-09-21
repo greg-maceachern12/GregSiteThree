@@ -226,6 +226,65 @@ export function addPlanter(
   ])
 }
 
+/** Stacked logs with alternating corner notches and a pale chink line. Returns the wall top. */
+export function addLogWalls(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  logs: THREE.Material,
+  chink: THREE.Material,
+  width: number,
+  depth: number,
+  baseY: number,
+  courses = 8,
+) {
+  const logH = 0.2
+  const thick = 0.16
+  const along = disposal.geo(new THREE.BoxGeometry(1, logH * 0.72, thick))
+  const across = disposal.geo(new THREE.BoxGeometry(thick, logH * 0.72, 1))
+  const chinkAlong = disposal.geo(new THREE.BoxGeometry(1, 0.035, thick * 0.5))
+  const chinkAcross = disposal.geo(new THREE.BoxGeometry(thick * 0.5, 0.035, 1))
+  for (let i = 0; i < courses; i++) {
+    const y = baseY + logH * (i + 0.5)
+    const longOver = i % 2 === 0
+    const spanX = width + (longOver ? 0.3 : 0)
+    const spanZ = depth + (longOver ? 0 : 0.3)
+    const front = addMesh(parent, along, logs, [0, y, depth / 2])
+    const back = addMesh(parent, along, logs, [0, y, -depth / 2])
+    front.scale.x = spanX
+    back.scale.x = spanX
+    const left = addMesh(parent, across, logs, [-width / 2, y, 0])
+    const right = addMesh(parent, across, logs, [width / 2, y, 0])
+    left.scale.z = spanZ
+    right.scale.z = spanZ
+    if (i === 0) continue
+    const cy = y - logH * 0.5
+    const cf = addMesh(parent, chinkAlong, chink, [0, cy, depth / 2 + 0.02], { cast: false })
+    const cb = addMesh(parent, chinkAlong, chink, [0, cy, -depth / 2 - 0.02], { cast: false })
+    cf.scale.x = width * 0.92
+    cb.scale.x = width * 0.92
+    const cl = addMesh(parent, chinkAcross, chink, [-width / 2 - 0.02, cy, 0], { cast: false })
+    const cr = addMesh(parent, chinkAcross, chink, [width / 2 + 0.02, cy, 0], { cast: false })
+    cl.scale.z = depth * 0.92
+    cr.scale.z = depth * 0.92
+  }
+  return baseY + courses * logH
+}
+
+export function addChimney(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  stone: THREE.Material,
+  cap: THREE.Material,
+  x: number,
+  z: number,
+  base: number,
+  height: number,
+) {
+  addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.42, height, 0.42)), stone, [x, base + height / 2, z])
+  addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.58, 0.08, 0.58)), stone, [x, base + height + 0.04, z])
+  addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.26, 0.12, 0.26)), cap, [x, base + height + 0.14, z])
+}
+
 export function addCornerBoards(
   parent: THREE.Object3D,
   disposal: Disposal,

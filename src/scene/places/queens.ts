@@ -1,11 +1,10 @@
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import * as THREE from 'three'
 import type { Atlas } from '../assets'
 import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addCornerBoards, addEaves, addGable, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
 
 export function buildQueens(
   parent: THREE.Object3D,
@@ -19,35 +18,45 @@ export function buildQueens(
   group.position.set(x, ground, z)
   parent.add(group)
 
-  const stone = surfaceMaterial(disposal, atlas.limestone)
-  const roof = surfaceMaterial(disposal, atlas.roof)
+  const logs = surfaceMaterial(disposal, atlas.darkWood, { roughness: 0.88 })
   const wood = surfaceMaterial(disposal, atlas.weathered)
-  const trim = standard(disposal, { color: '#efe6d8', roughness: 0.58, metalness: 0.02 })
-  const opening = standard(disposal, { color: '#24302f', roughness: 0.9, metalness: 0.02 })
+  const roof = surfaceMaterial(disposal, atlas.roof, { roughness: 0.94 })
+  const stone = surfaceMaterial(disposal, atlas.limestone)
+  const trim = standard(disposal, { color: '#efe4d2', roughness: 0.62, metalness: 0.02 })
+  const chink = standard(disposal, { color: '#e7d7c2', roughness: 0.9, metalness: 0.02 })
+  const doorPanel = standard(disposal, { color: '#5c3d2e', roughness: 0.74, metalness: 0.03 })
   const glass = standard(disposal, {
     color: '#8eaba6',
     roughness: 0.06,
     metalness: 0,
-    envMapIntensity: 1.75,
+    envMapIntensity: 1.7,
   })
-  const metal = standard(disposal, { color: '#6e675f', roughness: 0.42, metalness: 0.4 })
+  const metal = standard(disposal, { color: '#6e675f', roughness: 0.45, metalness: 0.35 })
   const leaf = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.8 })
 
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.5, 0.18, 2.7)), stone, [0, 0.1, 0])
-  addMesh(group, disposal.geo(new RoundedBoxGeometry(3.3, 2.05, 2.5, 2, 0.06)), stone, [0, 1.12, 0])
-  addCornerBoards(group, disposal, trim, 3.32, 2.52, 0.2, 2.08)
-  addGable(group, disposal, roof, 3.75, 2.95, 2.08, trim, stone)
-  addEaves(group, disposal, metal, 3.75, 2.95, 2.08, [1.65, 1.54])
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 0.12, 0.4)), stone, [0, 0.08, 1.62])
-  addPlanter(group, disposal, stone, leaf, [-1.35, 0, 1.72])
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 1.35, 0.08)), opening, [0, 0.78, 1.28], {
-    cast: false,
-  })
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.32, 0.08, 0.08)), trim, [0, 1.5, 1.34])
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.07, 1.4, 0.07)), trim, [-0.62, 0.78, 1.34])
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.07, 1.4, 0.07)), trim, [0.62, 0.78, 1.34])
-  addSash(group, disposal, trim, glass, [-1.15, 1.35, 1.28], '+z', 0.36, 0.48)
-  addSash(group, disposal, trim, glass, [1.15, 1.35, 1.28], '+z', 0.36, 0.48)
+  const width = 3.15
+  const depth = 2.4
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(width + 0.45, 0.22, depth + 0.4)), stone, [0, 0.12, 0])
+  const top = addLogWalls(group, disposal, logs, chink, width, depth, 0.28, 8)
+  addGable(group, disposal, roof, width + 0.55, depth + 0.45, top, trim, logs)
+  addEaves(group, disposal, metal, width + 0.55, depth + 0.45, top, [1.45, depth / 2 + 0.2])
+  addChimney(group, disposal, stone, trim, -1.15, -0.45, 0.3, top + 0.85)
+
+  const face = depth / 2 + 0.14
+  addDoor(group, disposal, trim, doorPanel, [0.72, 0.78, face], '+z', 0.52, 1.05)
+  addSash(group, disposal, trim, glass, [-0.78, 1.22, face], '+z', 0.46, 0.52)
+  const shutter = disposal.geo(new THREE.BoxGeometry(0.16, 0.5, 0.04))
+  addMesh(group, shutter, wood, [-1.12, 1.22, face], { rotation: [0, 0.18, 0] })
+  addMesh(group, shutter, wood, [-0.44, 1.22, face], { rotation: [0, -0.18, 0] })
+  addSash(group, disposal, trim, glass, [0.15, 1.28, -face], '-z', 0.4, 0.46)
+
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.35, 0.08, 0.7)), wood, [0.55, 0.16, face + 0.28])
+  const post = disposal.geo(new THREE.CylinderGeometry(0.05, 0.06, 1.15, 6))
+  addMesh(group, post, logs, [0.05, 0.7, face + 0.5])
+  addMesh(group, post, logs, [1.05, 0.7, face + 0.5])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.25, 0.06, 0.55)), roof, [0.55, 1.32, face + 0.32])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 0.1, 0.36)), stone, [0.7, 0.08, face + 0.55])
+  addPlanter(group, disposal, stone, leaf, [-1.4, 0, face + 0.15])
 
   const dockY = WATER_Y - ground + 0.06
   addMesh(group, disposal.geo(new THREE.BoxGeometry(0.95, 0.08, 2.3)), wood, [0, dockY, 2.35])
@@ -56,7 +65,7 @@ export function buildQueens(
   addMesh(group, piling, wood, [0.35, dockY - 0.32, 3.2])
 
   return {
-    label: new THREE.Vector3(x, ground + 3.35, z),
+    label: new THREE.Vector3(x, ground + 3.7, z),
     focus: new THREE.Vector3(x, ground + 1, z),
   }
 }
