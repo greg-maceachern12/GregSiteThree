@@ -1,10 +1,17 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { placeCard, projectAnchors, type ProjectedAnchor } from './anchors'
 import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
 import { FOG } from './ground'
-import { buildLake, buildWatercraft } from './lake'
+import { buildLake, buildWatercraft, setWaterTime } from './lake'
 import { buildPath } from './paths'
 import { buildGraveyard, buildStone } from './places/graveyard'
 import { buildHouse } from './places/house'
@@ -136,7 +143,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   scene.add(fill)
 
   buildShore(scene, disposal, atlas)
-  buildLake(scene, disposal, atlas)
+  const water = buildLake(scene, disposal, atlas)
   buildPath(scene, disposal, atlas)
 
   const built: Built[] = []
@@ -177,6 +184,22 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   buildGraveyard(scene, disposal, atlas)
   buildWatercraft(scene, disposal, atlas, bob)
 
+  const composer = new EffectComposer(renderer)
+  composer.addPass(new RenderPass(scene, camera))
+  const ssao = new SSAOPass(scene, camera, 512, 512, 16)
+  ssao.kernelRadius = 0.85
+  ssao.minDistance = 0.015
+  ssao.maxDistance = 0.4
+  composer.addPass(ssao)
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.26, 0.4, 1.08)
+  composer.addPass(bloom)
+  const bokeh = new BokehPass(scene, camera, { focus: 34, aperture: 0.00022, maxblur: 0.0042 })
+  composer.addPass(bokeh)
+  const outputPass = new OutputPass()
+  composer.addPass(outputPass)
+  const fxaa = new FXAAPass()
+  composer.addPass(fxaa)
+
   const projected: ProjectedAnchor[] = built.map((item) => ({
     id: item.id,
     position: item.label,
@@ -216,6 +239,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     camera.aspect = width / Math.max(1, height)
     camera.updateProjectionMatrix()
     renderer.setSize(width, height, false)
+    composer.setSize(width, height)
   }
   const observer = new ResizeObserver(resize)
   observer.observe(options.world)
@@ -245,10 +269,8 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       controls.target.lerp(goalTarget, blend)
     }
 
-    if (!still()) {
-      atlas.waterNormal.offset.x = motionTime * 0.018
-      atlas.waterNormal.offset.y = motionTime * 0.01
-    }
+    setWaterTime(water, motionTime)
+    ;(bokeh.uniforms as { focus: { value: number } }).focus.value = camera.position.distanceTo(controls.target)
     for (const item of bobbers) {
       const target = still()
         ? item.base
@@ -260,7 +282,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
     controls.enableDamping = !reduced
     controls.update()
-    renderer.render(scene, camera)
+    composer.render()
     projectAnchors(camera, options.world, projected)
     if (card && openId) {
       const point = built.find((item) => item.id === openId)?.label
@@ -284,6 +306,12 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       cancelAnimationFrame(frame)
       observer.disconnect()
       controls.dispose()
+      ssao.dispose()
+      bloom.dispose()
+      bokeh.dispose()
+      outputPass.dispose()
+      fxaa.dispose()
+      composer.dispose()
       disposal.dispose()
       hemi.dispose()
       sun.dispose()
