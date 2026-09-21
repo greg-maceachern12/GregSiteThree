@@ -139,24 +139,53 @@ export function buildWatercraft(
   parent.add(canoe)
   bob(canoe, 0.03)
 
-  const rowboat = new THREE.Group()
-  rowboat.position.set(4.4, WATER_Y + 0.02, 3.2)
-  rowboat.rotation.y = -0.6
+  const sailboat = new THREE.Group()
+  sailboat.position.set(4.4, WATER_Y + 0.04, 3.2)
+  sailboat.rotation.y = -0.5
   const hull = new THREE.Mesh(canoeGeometry(disposal), wood)
-  hull.scale.set(0.95, 0.6, 1.05)
+  hull.scale.set(1.7, 0.85, 6.6)
   hull.castShadow = true
-  rowboat.add(hull)
-  const oar = disposal.geo(new THREE.BoxGeometry(0.9, 0.03, 0.08))
-  const left = new THREE.Mesh(oar, wood)
-  left.position.set(-0.35, 0.14, 0.15)
-  left.rotation.z = 0.4
-  rowboat.add(left)
-  const right = new THREE.Mesh(oar, wood)
-  right.position.set(0.35, 0.14, -0.1)
-  right.rotation.z = -0.4
-  rowboat.add(right)
-  parent.add(rowboat)
-  bob(rowboat, 0.028)
+  hull.receiveShadow = true
+  sailboat.add(hull)
+
+  const rig = standard(disposal, { color: '#6a5644', roughness: 0.7, metalness: 0.04 })
+  const cloth = standard(disposal, {
+    color: '#f7f2e8',
+    roughness: 0.76,
+    metalness: 0.02,
+    envMapIntensity: 0.3,
+  })
+  cloth.side = THREE.DoubleSide
+  cloth.vertexColors = true
+
+  const mast = new THREE.Mesh(disposal.geo(new THREE.CylinderGeometry(0.02, 0.035, 2.15, 6)), rig)
+  mast.position.set(0, 1.2, -0.12)
+  mast.castShadow = true
+  sailboat.add(mast)
+
+  const main = new THREE.Mesh(sailGeometry(disposal, 1.32, 1.7, 0.2), cloth)
+  main.position.set(0.03, 0.38, -0.1)
+  main.rotation.y = 0.95
+  main.castShadow = true
+  main.receiveShadow = true
+  sailboat.add(main)
+  const boom = new THREE.Mesh(disposal.geo(new THREE.CylinderGeometry(0.018, 0.02, 1.28, 5)), rig)
+  boom.rotation.z = Math.PI / 2
+  boom.position.set(0.64, 0.02, 0.04)
+  boom.castShadow = true
+  main.add(boom)
+
+  const jib = new THREE.Mesh(sailGeometry(disposal, 0.78, 1.15, 0.1), cloth)
+  jib.position.set(0.02, 0.55, 0.22)
+  jib.rotation.y = -0.85
+  jib.castShadow = true
+  jib.receiveShadow = true
+  sailboat.add(jib)
+
+  sailboat.add(stay(disposal, rig, new THREE.Vector3(0, 2.22, -0.12), new THREE.Vector3(0, 0.28, 0.95)))
+  sailboat.add(stay(disposal, rig, new THREE.Vector3(0, 2.22, -0.12), new THREE.Vector3(0, 0.28, -0.85)))
+  parent.add(sailboat)
+  bob(sailboat, 0.028)
 
   const raft = new THREE.Group()
   raft.position.set(-6.2, WATER_Y + 0.06, 1.6)
@@ -182,6 +211,40 @@ export function buildWatercraft(
     parent.add(buoy)
     bob(buoy, amplitude + index * 0.004)
   })
+}
+
+function sailGeometry(disposal: Disposal, width: number, height: number, belly: number) {
+  const shape = new THREE.Shape()
+  shape.moveTo(0, 0)
+  shape.lineTo(width, height * 0.03)
+  shape.bezierCurveTo(width * 0.82, height * 0.4, width * 0.46, height * 0.74, width * 0.04, height)
+  shape.lineTo(0, height)
+  shape.closePath()
+  const geometry = new THREE.ShapeGeometry(shape, 14)
+  const position = geometry.attributes.position
+  const colors = new Float32Array(position.count * 3)
+  for (let i = 0; i < position.count; i++) {
+    const u = THREE.MathUtils.clamp(position.getX(i) / width, 0, 1)
+    const v = THREE.MathUtils.clamp(position.getY(i) / height, 0, 1)
+    const fill = Math.sin(u * Math.PI) * Math.sin(v * Math.PI)
+    position.setZ(i, fill * belly)
+    const light = 0.9 + fill * 0.1
+    colors[i * 3] = light
+    colors[i * 3 + 1] = light * 0.985
+    colors[i * 3 + 2] = light * 0.94
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geometry.computeVertexNormals()
+  return disposal.geo(geometry)
+}
+
+function stay(disposal: Disposal, material: THREE.Material, from: THREE.Vector3, to: THREE.Vector3) {
+  const direction = new THREE.Vector3().subVectors(to, from)
+  const length = direction.length()
+  const mesh = new THREE.Mesh(disposal.geo(new THREE.CylinderGeometry(0.01, 0.01, length, 4)), material)
+  mesh.position.copy(from).add(to).multiplyScalar(0.5)
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize())
+  return mesh
 }
 
 function canoeGeometry(disposal: Disposal) {
