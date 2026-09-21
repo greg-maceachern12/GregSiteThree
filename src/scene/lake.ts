@@ -68,6 +68,21 @@ export function setWaterTime(mesh: THREE.Mesh, time: number) {
   if (shader) shader.uniforms.uTime.value = time
 }
 
+export const WATER_COLOR_CHUNK = `#include <color_fragment>
+         vec3 deepWater = vec3(0.07, 0.30, 0.38);
+         vec3 bottom = vec3(0.90, 0.82, 0.62);
+         diffuseColor.rgb = mix(diffuseColor.rgb, deepWater, smoothstep(0.78, 0.2, vShore) * 0.28);
+         diffuseColor.rgb = mix(diffuseColor.rgb, bottom, smoothstep(0.62, 0.96, vShore) * 0.34);
+         float foamBand = smoothstep(0.8, 0.95, vShore);
+         float foamNoise = texture2D(normalMap, vNormalMapUv * 3.2 + vec2(uTime * 0.12, -uTime * 0.05)).y;
+         float foam = foamBand * smoothstep(0.4, 0.78, foamNoise);
+         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.94, 0.96, 0.93), foam);`
+
+export const WATER_ROUGHNESS_CHUNK = `#include <roughnessmap_fragment>
+         float edge = smoothstep(0.72, 0.96, vShore);
+         roughnessFactor = mix(0.2, roughnessFactor, smoothstep(0.12, 0.75, vShore));
+         roughnessFactor = mix(roughnessFactor, 0.78, edge);`
+
 function shadeWater(material: THREE.MeshStandardMaterial) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = { value: 0 }
@@ -91,25 +106,8 @@ function shadeWater(material: THREE.MeshStandardMaterial) {
          varying float vShore;
          uniform float uTime;`,
       )
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-         vec3 deepWater = vec3(0.07, 0.30, 0.38);
-         vec3 bottom = vec3(0.90, 0.82, 0.62);
-         diffuseColor.rgb = mix(diffuseColor.rgb, deepWater, smoothstep(0.78, 0.2, vShore) * 0.28);
-         diffuseColor.rgb = mix(diffuseColor.rgb, bottom, smoothstep(0.62, 0.96, vShore) * 0.34);
-         float foamBand = smoothstep(0.8, 0.95, vShore);
-         float foamNoise = texture2D(normalMap, vNormalMapUv * 3.2 + vec2(uTime * 0.12, -uTime * 0.05)).y;
-         float foam = foamBand * smoothstep(0.4, 0.78, foamNoise);
-         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.94, 0.96, 0.93), foam);`,
-      )
-      .replace(
-        '#include <roughnessmap_fragment>',
-        `#include <roughnessmap_fragment>
-         float edge = smoothstep(0.72, 0.96, vShore);
-         roughnessFactor = mix(0.2, roughnessFactor, smoothstep(0.12, 0.75, vShore));
-         roughnessFactor = mix(roughnessFactor, 0.78, edge);`,
-      )
+      .replace('#include <color_fragment>', WATER_COLOR_CHUNK)
+      .replace('#include <roughnessmap_fragment>', WATER_ROUGHNESS_CHUNK)
       .replace(
         '#include <normal_fragment_maps>',
         `vec2 scrollA = vNormalMapUv + vec2(uTime * 0.016, uTime * 0.009);

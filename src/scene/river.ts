@@ -3,7 +3,8 @@ import type { Atlas } from './assets'
 import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
 import { standard } from './disposal'
-import { FOG, terrainHeight } from './ground'
+import { FOG, WATER_BOUNDS, lakeRadius, terrainHeight } from './ground'
+import { WATER_COLOR_CHUNK, WATER_ROUGHNESS_CHUNK } from './lake'
 import { RIVER_COURSE, riverSurface } from './riverCourse'
 
 export function buildRiver(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
@@ -12,11 +13,10 @@ export function buildRiver(parent: THREE.Object3D, disposal: Disposal, atlas: At
     map: atlas.waterColor,
     roughnessMap: atlas.waterRoughness,
     normalMap: atlas.waterNormal,
-    normalScale: new THREE.Vector2(1.45, 1.45),
-    color: '#7eb8b4',
-    roughness: 0.28,
-    metalness: 0.04,
-    envMapIntensity: 1.7,
+    normalScale: new THREE.Vector2(1.25, 1.25),
+    roughness: 0.55,
+    metalness: 0.03,
+    envMapIntensity: 1.95,
   })
   material.fog = false
   material.side = THREE.DoubleSide
@@ -39,9 +39,13 @@ function ribbon(disposal: Disposal) {
   const positions: number[] = []
   const uvs: number[] = []
   const along: number[] = []
+  const shore: number[] = []
+  const flow: number[] = []
   const indices: number[] = []
   const side = new THREE.Vector3()
   const tangent = new THREE.Vector3()
+  const spanX = WATER_BOUNDS.maxX - WATER_BOUNDS.minX
+  const spanZ = WATER_BOUNDS.maxZ - WATER_BOUNDS.minZ
 
   for (let i = 0; i <= divisions; i++) {
     const t = i / divisions
@@ -53,12 +57,15 @@ function ribbon(disposal: Disposal) {
     side.set(-tangent.z, 0, tangent.x)
     const width = 1.4 - t * 0.95
     const y = riverSurface(t)
-    const left = point.clone().addScaledVector(side, width / 2)
-    const right = point.clone().addScaledVector(side, -width / 2)
-    positions.push(left.x, y, left.z, right.x, y, right.z)
-    const v = t * 5
-    uvs.push(0, v, 1, v)
-    along.push(t, t)
+    for (const bank of [width / 2, -width / 2]) {
+      const x = point.x + side.x * bank
+      const z = point.z + side.z * bank
+      positions.push(x, y, z)
+      uvs.push((x - WATER_BOUNDS.minX) / spanX, (z - WATER_BOUNDS.minZ) / spanZ)
+      shore.push(Math.min(lakeRadius(x, z), 0.9))
+      flow.push(tangent.x / spanX, tangent.z / spanZ)
+      along.push(t)
+    }
   }
 
   for (let i = 0; i < divisions; i++) {
@@ -70,6 +77,8 @@ function ribbon(disposal: Disposal) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geometry.setAttribute('along', new THREE.Float32BufferAttribute(along, 1))
+  geometry.setAttribute('shore', new THREE.Float32BufferAttribute(shore, 1))
+  geometry.setAttribute('flow', new THREE.Float32BufferAttribute(flow, 2))
   geometry.setIndex(indices)
   geometry.computeVertexNormals()
   return geometry
@@ -86,7 +95,11 @@ function shadeRiver(material: THREE.MeshStandardMaterial) {
         '#include <common>',
         `#include <common>
          attribute float along;
+         attribute float shore;
+         attribute vec2 flow;
          varying float vAlong;
+         varying float vShore;
+         varying vec2 vFlow;
          varying vec3 vRimWorld;
          uniform float uTime;`,
       )
@@ -94,9 +107,10 @@ function shadeRiver(material: THREE.MeshStandardMaterial) {
         '#include <begin_vertex>',
         `#include <begin_vertex>
          vAlong = along;
-         float across = abs(uv.x * 2.0 - 1.0);
-         float crest = sin(uv.y * 14.0 - uTime * 2.8);
-         transformed.y += crest * 0.022 * (1.0 - across);`,
+         vShore = shore;
+         vFlow = flow;
+         float crest = sin(along * 28.0 - uTime * 2.4);
+         transformed.y += crest * 0.012;`,
       )
       .replace(
         '#include <project_vertex>',
@@ -108,38 +122,23 @@ function shadeRiver(material: THREE.MeshStandardMaterial) {
         '#include <common>',
         `#include <common>
          varying float vAlong;
+         varying float vShore;
+         varying vec2 vFlow;
          varying vec3 vRimWorld;
          uniform float uTime;
          uniform vec3 uRimColor;`,
       )
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-         float across = abs(vMapUv.x - 0.5) * 2.0;
-         float center = smoothstep(0.95, 0.2, across);
-         vec3 deep = vec3(0.05, 0.28, 0.36);
-         diffuseColor.rgb = mix(diffuseColor.rgb, deep, 0.42 * center);
-         float phase = vMapUv.y * 6.28318 - uTime * 1.85;
-         float streak = pow(max(sin(phase), 0.0), 6.0);
-         float thread = pow(max(sin(phase * 0.45 + 1.4), 0.0), 4.0);
-         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.97, 0.94), (streak * 0.9 + thread * 0.5) * center);
-         float lip = smoothstep(0.62, 1.0, across) * (1.0 - smoothstep(0.82, 1.0, vAlong));
-         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.9), lip * 0.45);
+      .replace('#include <color_fragment>', `${WATER_COLOR_CHUNK}
          float rim = smoothstep(22.0, 33.0, length(vRimWorld.xz));
-         diffuseColor.rgb = mix(diffuseColor.rgb, uRimColor, max(rim, smoothstep(0.78, 1.0, vAlong)));`,
-      )
-      .replace(
-        '#include <roughnessmap_fragment>',
-        `#include <roughnessmap_fragment>
-         roughnessFactor = mix(0.16, 0.62, abs(vMapUv.x - 0.5) * 2.0);`,
-      )
+         diffuseColor.rgb = mix(diffuseColor.rgb, uRimColor, max(rim, smoothstep(0.82, 1.0, vAlong)));`)
+      .replace('#include <roughnessmap_fragment>', WATER_ROUGHNESS_CHUNK)
       .replace(
         '#include <normal_fragment_maps>',
-        `vec2 flowA = vec2(vMapUv.x * 0.8, vMapUv.y - uTime * 0.72);
-         vec2 flowB = vec2(vMapUv.x * 1.8 + 0.15, vMapUv.y * 1.4 - uTime * 1.15);
-         vec3 mapN = texture2D(normalMap, flowA).xyz * 2.0 - 1.0;
-         vec3 mapN2 = texture2D(normalMap, flowB).xyz * 2.0 - 1.0;
-         mapN = normalize(vec3(mapN.xy * 0.9 + mapN2.xy * 1.2, 1.0));
+        `vec2 scrollA = vNormalMapUv + vFlow * uTime * 4.5;
+         vec2 scrollB = vNormalMapUv * 2.55 + vFlow * uTime * 6.5;
+         vec3 mapN = texture2D(normalMap, scrollA).xyz * 2.0 - 1.0;
+         vec3 mapN2 = texture2D(normalMap, scrollB).xyz * 2.0 - 1.0;
+         mapN = normalize(vec3(mapN.xy * 0.7 + mapN2.xy * 0.9, 1.0));
          mapN.xy *= normalScale;
          normal = normalize(tbn * mapN);`,
       )
