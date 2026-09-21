@@ -5,7 +5,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addGable, addMesh } from '../parts'
+import { addCornerBoards, addGable, addMesh } from '../parts'
 
 const PANES = ['#4aa3e0', '#7dbb42', '#f0c43a', '#e15b4a']
 
@@ -23,8 +23,23 @@ export function buildMicrosoft(
 
   const siding = surfaceMaterial(disposal, atlas.siding, { normalScale: new THREE.Vector2(0.55, 0.55) })
   const roof = surfaceMaterial(disposal, atlas.roof)
+  const trim = standard(disposal, { color: '#f4efe6', roughness: 0.55, metalness: 0.02 })
+  const wood = surfaceMaterial(disposal, atlas.weathered)
+
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.9, 0.16, 3.0)), wood, [0, 0.1, 0])
   addMesh(group, disposal.geo(new RoundedBoxGeometry(3.7, 2.15, 2.8, 2, 0.07)), siding, [0, 1.2, 0])
-  addGable(group, disposal, roof, 4, 3.1, 2.2)
+  addCornerBoards(group, disposal, trim, 3.72, 2.82, 0.2, 2.22)
+  addGable(group, disposal, roof, 4.15, 3.25, 2.22, trim, siding)
+
+  const frame = disposal.geo(new THREE.BoxGeometry(1.12, 0.07, 0.07))
+  const stile = disposal.geo(new THREE.BoxGeometry(0.07, 1.05, 0.07))
+  addMesh(group, frame, trim, [0, 1.68, 1.46])
+  addMesh(group, frame, trim, [0, 0.64, 1.46])
+  addMesh(group, stile, trim, [-0.52, 1.16, 1.46])
+  addMesh(group, stile, trim, [0.52, 1.16, 1.46])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.06, 0.98, 0.05)), trim, [0, 1.16, 1.48])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.98, 0.06, 0.05)), trim, [0, 1.16, 1.48])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.2, 0.06, 0.14)), trim, [0, 0.56, 1.5])
 
   PANES.forEach((color, index) => {
     const pane = standard(disposal, {
@@ -39,12 +54,12 @@ export function buildMicrosoft(
     addMesh(group, disposal.geo(new THREE.PlaneGeometry(0.4, 0.4)), pane, [
       -0.24 + column * 0.48,
       1.42 - row * 0.48,
-      1.42,
+      1.44,
     ], { cast: false, receive: false })
   })
 
   return {
-    label: new THREE.Vector3(x, ground + 2.9, z),
+    label: new THREE.Vector3(x, ground + 3.55, z),
     focus: new THREE.Vector3(x, ground + 1.1, z),
   }
 }

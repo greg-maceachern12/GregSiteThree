@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addGable, addMesh } from '../parts'
+import { addGable, addMesh, addSash } from '../parts'
 
 export function buildRange(
   parent: THREE.Object3D,
@@ -20,22 +20,27 @@ export function buildRange(
 
   const wood = surfaceMaterial(disposal, atlas.siding, { normalScale: new THREE.Vector2(0.4, 0.4) })
   const roof = surfaceMaterial(disposal, atlas.roof)
+  const trim = standard(disposal, { color: '#f3e7d6', roughness: 0.58, metalness: 0.02 })
   const glass = standard(disposal, {
     color: '#d7e4e1',
-    roughness: 0.05,
-    metalness: 0.02,
+    roughness: 0.08,
+    metalness: 0.04,
     transparent: true,
-    opacity: 0.32,
-    envMapIntensity: 1.35,
+    opacity: 0.42,
+    envMapIntensity: 1.45,
     depthWrite: false,
   })
   glass.side = THREE.DoubleSide
 
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.4, 1.7, 2.5)), glass, [0, 1.05, 0], {
-    cast: false,
-    receive: false,
-  })
-  const post = disposal.geo(new THREE.BoxGeometry(0.12, 1.85, 0.12))
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.55, 0.12, 2.7)), wood, [0, 0.12, 0])
+  const pane = disposal.geo(new THREE.PlaneGeometry(3.2, 1.55))
+  addMesh(group, pane, glass, [0, 1.05, 1.2], { cast: false, receive: false })
+  addMesh(group, pane, glass, [0, 1.05, -1.2], { cast: false, receive: false, rotation: [0, Math.PI, 0] })
+  const sidePane = disposal.geo(new THREE.PlaneGeometry(2.2, 1.55))
+  addMesh(group, sidePane, glass, [1.65, 1.05, 0], { cast: false, receive: false, rotation: [0, Math.PI / 2, 0] })
+  addMesh(group, sidePane, glass, [-1.65, 1.05, 0], { cast: false, receive: false, rotation: [0, -Math.PI / 2, 0] })
+
+  const post = disposal.geo(new THREE.BoxGeometry(0.1, 1.85, 0.1))
   for (const [px, pz] of [
     [-1.65, -1.2],
     [1.65, -1.2],
@@ -44,8 +49,11 @@ export function buildRange(
   ] as const) {
     addMesh(group, post, wood, [px, 0.95, pz])
   }
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.5, 0.1, 2.6)), wood, [0, 0.16, 0])
-  addGable(group, disposal, roof, 3.7, 2.8, 1.85)
+  const mullion = disposal.geo(new THREE.BoxGeometry(0.045, 1.55, 0.045))
+  for (const x of [-0.55, 0.55]) addMesh(group, mullion, trim, [x, 1.05, 1.24])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(3.2, 0.045, 0.045)), trim, [0, 1.05, 1.24])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.045, 1.55, 2.3)), trim, [0, 1.05, 0])
+  addGable(group, disposal, roof, 3.9, 3.05, 1.9, trim, wood)
 
   const lampMaterial = standard(disposal, {
     color: '#ffb15a',
@@ -53,16 +61,13 @@ export function buildRange(
     emissiveIntensity: 1.35,
     roughness: 0.3,
   })
-  addMesh(group, disposal.geo(new THREE.PlaneGeometry(0.36, 0.46)), lampMaterial, [-1.2, 1.15, 1.26], {
-    cast: false,
-    receive: false,
-  })
+  addSash(group, disposal, trim, lampMaterial, [-1.05, 1.15, 1.28], '+z', 0.42, 0.52)
   const lamp = new THREE.PointLight('#ffb15e', 3.2, 5.5, 2)
   lamp.position.set(-0.5, 1.3, 0.4)
   group.add(lamp)
 
   return {
-    label: new THREE.Vector3(x, ground + 2.7, z),
+    label: new THREE.Vector3(x, ground + 3.2, z),
     focus: new THREE.Vector3(x, ground + 1, z),
   }
 }
