@@ -46,6 +46,10 @@ export function terrainHeight(x: number, z: number) {
   let height = -0.62 + land * 1.28
   height += smoothstep(1.08, 1.75, radius) * 0.2
   height += (noise(x * 0.18, z * 0.18) - 0.45) * 0.2 * land
+  height += (noise(x * 0.055 + 4.2, z * 0.055) - 0.5) * 0.36 * land
+  height += (noise(x * 0.14 + 1.3, z * 0.14) - 0.5) * 0.07 * land
+  const shoreBand = smoothstep(0.98, 1.04, radius) * (1 - smoothstep(1.08, 1.22, radius))
+  height += (noise(x * 0.72, z * 0.72) - 0.42) * 0.07 * shoreBand
 
   const lawnX = x + 2.2
   const lawnZ = z - 13.4
