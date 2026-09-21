@@ -6,7 +6,8 @@ import { standard } from './disposal'
 export type Surface = {
   color: THREE.Texture
   roughness: THREE.Texture
-  normal?: THREE.Texture
+  normal: THREE.Texture
+  ao: THREE.Texture
 }
 
 export type Atlas = {
@@ -28,7 +29,8 @@ export type Atlas = {
 type Spec = {
   color: string
   roughness: string
-  normal?: string
+  normal: string
+  ao: string
   clamp?: boolean
   repeat?: [number, number]
 }
@@ -37,41 +39,57 @@ const SURFACES: Record<string, Spec> = {
   terrain: {
     color: '/textures/terrain-color.webp',
     roughness: '/textures/terrain-roughness.webp',
+    normal: '/textures/terrain-normal.webp',
+    ao: '/textures/terrain-ao.webp',
     clamp: true,
   },
   siding: {
     color: '/textures/wood-siding-color.webp',
     roughness: '/textures/wood-siding-roughness.webp',
     normal: '/textures/wood-siding-normal.webp',
+    ao: '/textures/wood-siding-ao.webp',
   },
   weathered: {
     color: '/textures/wood-weathered-color.webp',
     roughness: '/textures/wood-weathered-roughness.webp',
+    normal: '/textures/wood-weathered-normal.webp',
+    ao: '/textures/wood-weathered-ao.webp',
   },
   darkWood: {
     color: '/textures/wood-dark-color.webp',
     roughness: '/textures/wood-dark-roughness.webp',
+    normal: '/textures/wood-dark-normal.webp',
+    ao: '/textures/wood-dark-ao.webp',
   },
   limestone: {
     color: '/textures/limestone-color.webp',
     roughness: '/textures/limestone-roughness.webp',
+    normal: '/textures/limestone-normal.webp',
+    ao: '/textures/limestone-ao.webp',
   },
   gravel: {
     color: '/textures/gravel-color.webp',
     roughness: '/textures/gravel-roughness.webp',
+    normal: '/textures/gravel-normal.webp',
+    ao: '/textures/gravel-ao.webp',
   },
   slate: {
     color: '/textures/slate-color.webp',
     roughness: '/textures/slate-roughness.webp',
     normal: '/textures/slate-normal.webp',
+    ao: '/textures/slate-ao.webp',
   },
   roof: {
     color: '/textures/roof-color.webp',
     roughness: '/textures/roof-roughness.webp',
+    normal: '/textures/roof-normal.webp',
+    ao: '/textures/roof-ao.webp',
   },
   foliage: {
     color: '/textures/foliage-color.webp',
     roughness: '/textures/foliage-roughness.webp',
+    normal: '/textures/foliage-normal.webp',
+    ao: '/textures/foliage-ao.webp',
   },
 }
 
@@ -100,12 +118,13 @@ export async function loadAtlas(
   const loadSurface = async (spec: Spec): Promise<Surface> => {
     const repeat = spec.repeat ?? [1, 1]
     const clamp = spec.clamp ?? false
-    const [color, roughness, normal] = await Promise.all([
+    const [color, roughness, normal, ao] = await Promise.all([
       loadTexture(spec.color, 'color', clamp, repeat),
       loadTexture(spec.roughness, 'data', clamp, repeat),
-      spec.normal ? loadTexture(spec.normal, 'data', clamp, repeat) : Promise.resolve(undefined),
+      loadTexture(spec.normal, 'data', clamp, repeat),
+      loadTexture(spec.ao, 'data', clamp, repeat),
     ])
-    return { color, roughness, normal }
+    return { color, roughness, normal, ao }
   }
 
   const surfaces = {} as Record<keyof typeof SURFACES, Surface>
@@ -145,7 +164,9 @@ export function surfaceMaterial(
   return standard(disposal, {
     map: surface.color,
     roughnessMap: surface.roughness,
-    ...(surface.normal ? { normalMap: surface.normal } : {}),
+    normalMap: surface.normal,
+    aoMap: surface.ao,
+    aoMapIntensity: 0.72,
     roughness: 1,
     metalness: 0.04,
     ...params,

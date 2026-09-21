@@ -16,10 +16,10 @@ export function buildSeattle(
 ) {
   const dark = surfaceMaterial(disposal, atlas.darkWood, { roughness: 0.72, metalness: 0.06 })
   const glass = standard(disposal, {
-    color: '#c5d5d8',
-    roughness: 0.12,
-    metalness: 0.04,
-    envMapIntensity: 0.8,
+    color: '#8ea8ad',
+    roughness: 0.07,
+    metalness: 0,
+    envMapIntensity: 1.6,
   })
 
   const ferry = new THREE.Group()

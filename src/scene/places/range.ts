@@ -22,12 +22,12 @@ export function buildRange(
   const roof = surfaceMaterial(disposal, atlas.roof)
   const trim = standard(disposal, { color: '#f3e7d6', roughness: 0.58, metalness: 0.02 })
   const glass = standard(disposal, {
-    color: '#d7e4e1',
-    roughness: 0.08,
-    metalness: 0.04,
+    color: '#7f9e9a',
+    roughness: 0.05,
+    metalness: 0,
     transparent: true,
-    opacity: 0.42,
-    envMapIntensity: 1.45,
+    opacity: 0.55,
+    envMapIntensity: 1.8,
     depthWrite: false,
   })
   glass.side = THREE.DoubleSide

@@ -25,10 +25,10 @@ export function buildHouse(
   const stone = surfaceMaterial(disposal, atlas.limestone)
   const trim = standard(disposal, { color: '#f3e7d6', roughness: 0.62, metalness: 0.02 })
   const glass = standard(disposal, {
-    color: '#d5e4e0',
-    roughness: 0.16,
-    metalness: 0.04,
-    envMapIntensity: 1.15,
+    color: '#8eaba6',
+    roughness: 0.06,
+    metalness: 0,
+    envMapIntensity: 1.75,
   })
   const warm = standard(disposal, {
     color: '#ffb15a',

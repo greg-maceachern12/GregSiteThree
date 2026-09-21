@@ -25,10 +25,10 @@ export function buildQueens(
   const trim = standard(disposal, { color: '#efe6d8', roughness: 0.58, metalness: 0.02 })
   const opening = standard(disposal, { color: '#24302f', roughness: 0.9, metalness: 0.02 })
   const glass = standard(disposal, {
-    color: '#d5e4e0',
-    roughness: 0.16,
-    metalness: 0.04,
-    envMapIntensity: 1.1,
+    color: '#8eaba6',
+    roughness: 0.06,
+    metalness: 0,
+    envMapIntensity: 1.75,
   })
 
   addMesh(group, disposal.geo(new THREE.BoxGeometry(3.5, 0.18, 2.7)), stone, [0, 0.1, 0])

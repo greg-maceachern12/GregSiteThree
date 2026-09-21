@@ -6,6 +6,8 @@ export class Disposal {
   private textures = new Set<THREE.Texture>()
 
   geo<T extends THREE.BufferGeometry>(geometry: T) {
+    const uv = geometry.getAttribute('uv')
+    if (uv && !geometry.getAttribute('uv2')) geometry.setAttribute('uv2', uv)
     this.geometries.add(geometry)
     return geometry
   }
