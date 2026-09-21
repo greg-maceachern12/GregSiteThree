@@ -30,8 +30,9 @@ export function projectAnchors(
       anchor.element.hidden = true
       continue
     }
-    const x = (ndc.x * 0.5 + 0.5) * width
-    const y = (-ndc.y * 0.5 + 0.5) * height
+    const margin = 22
+    const x = Math.min(width - margin, Math.max(margin, (ndc.x * 0.5 + 0.5) * width))
+    const y = Math.min(height - margin, Math.max(margin, (-ndc.y * 0.5 + 0.5) * height))
     anchor.element.hidden = false
     anchor.element.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`
   }

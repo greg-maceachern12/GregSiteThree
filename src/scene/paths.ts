@@ -1,6 +1,7 @@
 import * as THREE from 'three'
+import type { Atlas } from './assets'
+import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
-import { standard } from './disposal'
 import { terrainHeight } from './ground'
 
 const WAYPOINTS: Array<[number, number]> = [
@@ -8,11 +9,29 @@ const WAYPOINTS: Array<[number, number]> = [
   [3.6, 10.6],
   [7.4, 9.2],
   [11.2, 8.4],
-  [14.6, 8.0],
-  [16.8, 7.8],
+  [12.2, 9.0],
+  [14.2, 9.2],
 ]
 
-export function buildPath(parent: THREE.Object3D, disposal: Disposal) {
+export function distanceToPath(x: number, z: number) {
+  let best = Infinity
+  for (let i = 0; i < WAYPOINTS.length - 1; i++) {
+    best = Math.min(best, segmentDistance(x, z, WAYPOINTS[i], WAYPOINTS[i + 1]))
+  }
+  return best
+}
+
+function segmentDistance(x: number, z: number, a: [number, number], b: [number, number]) {
+  const abx = b[0] - a[0]
+  const abz = b[1] - a[1]
+  const length = abx * abx + abz * abz || 1
+  const t = Math.min(1, Math.max(0, ((x - a[0]) * abx + (z - a[1]) * abz) / length))
+  const px = a[0] + abx * t
+  const pz = a[1] + abz * t
+  return Math.hypot(x - px, z - pz)
+}
+
+export function buildPath(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
   const points = WAYPOINTS.map(([x, z]) => new THREE.Vector3(x, terrainHeight(x, z) + 0.045, z))
   const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5)
   const divisions = 48
@@ -37,7 +56,7 @@ export function buildPath(parent: THREE.Object3D, disposal: Disposal) {
     left.y = y
     right.y = y
     positions.push(left.x, left.y, left.z, right.x, right.y, right.z)
-    uvs.push(0, t, 1, t)
+    uvs.push(0, t * 10, 1, t * 10)
   }
 
   for (let i = 0; i < divisions; i++) {
@@ -51,11 +70,10 @@ export function buildPath(parent: THREE.Object3D, disposal: Disposal) {
   geometry.setIndex(indices)
   geometry.computeVertexNormals()
 
-  const material = standard(disposal, {
-    color: '#c4b59a',
-    roughness: 0.96,
-    metalness: 0.02,
-  })
+  const material = surfaceMaterial(disposal, atlas.gravel, { roughness: 1, metalness: 0.02 })
+  material.polygonOffset = true
+  material.polygonOffsetFactor = -1
+  material.polygonOffsetUnits = -1
   const mesh = new THREE.Mesh(geometry, material)
   mesh.receiveShadow = true
   mesh.castShadow = false

@@ -1,38 +1,50 @@
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import * as THREE from 'three'
+import type { Atlas } from '../assets'
+import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
+import { addGable, addMesh } from '../parts'
 
 const PANES = ['#4aa3e0', '#7dbb42', '#f0c43a', '#e15b4a']
 
-export function buildMicrosoft(parent: THREE.Object3D, disposal: Disposal, x: number, z: number) {
+export function buildMicrosoft(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  atlas: Atlas,
+  x: number,
+  z: number,
+) {
   const ground = terrainHeight(x, z)
   const group = new THREE.Group()
   group.position.set(x, ground, z)
   parent.add(group)
 
-  const cabin = new THREE.Mesh(
-    disposal.geo(new THREE.BoxGeometry(3.8, 2.3, 2.9)),
-    standard(disposal, { color: '#9a7b5c', roughness: 0.8 }),
-  )
-  cabin.position.y = 1.15
-  cabin.castShadow = true
-  cabin.receiveShadow = true
-  group.add(cabin)
+  const siding = surfaceMaterial(disposal, atlas.siding, { normalScale: new THREE.Vector2(0.55, 0.55) })
+  const roof = surfaceMaterial(disposal, atlas.roof)
+  addMesh(group, disposal.geo(new RoundedBoxGeometry(3.7, 2.15, 2.8, 2, 0.07)), siding, [0, 1.2, 0])
+  addGable(group, disposal, roof, 4, 3.1, 2.2)
 
   PANES.forEach((color, index) => {
-    const pane = new THREE.Mesh(
-      disposal.geo(new THREE.PlaneGeometry(0.38, 0.38)),
-      standard(disposal, { color, roughness: 0.35, emissive: color, emissiveIntensity: 0.25 }),
-    )
-    const col = index % 2
+    const pane = standard(disposal, {
+      color,
+      emissive: color,
+      emissiveIntensity: 0.28,
+      roughness: 0.32,
+      metalness: 0.02,
+    })
+    const column = index % 2
     const row = Math.floor(index / 2)
-    pane.position.set(-0.24 + col * 0.46, 1.35 - row * 0.46, 1.46)
-    group.add(pane)
+    addMesh(group, disposal.geo(new THREE.PlaneGeometry(0.4, 0.4)), pane, [
+      -0.24 + column * 0.48,
+      1.42 - row * 0.48,
+      1.42,
+    ], { cast: false, receive: false })
   })
 
   return {
-    label: new THREE.Vector3(x, ground + 2.7, z),
-    focus: new THREE.Vector3(x, ground + 1, z),
+    label: new THREE.Vector3(x, ground + 2.9, z),
+    focus: new THREE.Vector3(x, ground + 1.1, z),
   }
 }

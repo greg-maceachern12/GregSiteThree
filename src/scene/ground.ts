@@ -3,6 +3,7 @@ export const LAKE_RZ = 12.2
 export const LAKE_CZ = -0.6
 export const WATER_Y = 0.14
 export const FOG = '#e6e0d2'
+export const WATER_BOUNDS = { minX: -18.2, maxX: 18.2, minZ: -14.4, maxZ: 13.2 }
 
 export function smoothstep(edge0: number, edge1: number, value: number) {
   const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)))

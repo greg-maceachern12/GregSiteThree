@@ -20,7 +20,7 @@ export const moments: Moment[] = [
   {
     id: 'seattle',
     name: 'Seattle',
-    position: [1.4, -7.6],
+    position: [1.5, -10.3],
   },
   {
     id: 'microsoft',
@@ -48,6 +48,6 @@ export const moments: Moment[] = [
     name: 'Range',
     role: 'Product Manager',
     detail: 'AI wealth management',
-    position: [17.4, 7.6],
+    position: [14.4, 9.1],
   },
 ]

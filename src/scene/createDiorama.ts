@@ -1,17 +1,18 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { placeCard, projectAnchors, type ProjectedAnchor } from './anchors'
+import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
 import { FOG } from './ground'
-import { buildLake } from './lake'
+import { buildLake, buildWatercraft } from './lake'
 import { buildPath } from './paths'
+import { buildGraveyard, buildStone } from './places/graveyard'
 import { buildHouse } from './places/house'
 import { buildMicrosoft } from './places/microsoft'
 import { buildQueens } from './places/queens'
 import { buildRange } from './places/range'
 import { buildSeattle } from './places/seattle'
 import { buildStage } from './places/stage'
-import { buildStone, buildYardBoxes } from './places/graveyard'
 import { buildShore } from './shore'
 
 export type AnchorInput = {
@@ -39,10 +40,9 @@ export type Diorama = {
   setCard: (id: string | null, element: HTMLElement | null) => void
 }
 
-const HOME_POS = new THREE.Vector3(1.6, 18.2, 23.4)
-const HOME_TARGET = new THREE.Vector3(0.2, 0.55, 1.1)
-const MOMENTS = new Set(['queens', 'seattle', 'microsoft', 'newyork', 'music', 'range'])
-
+const HOME_POS = new THREE.Vector3(2.2, 23.5, 29.5)
+const HOME_TARGET = new THREE.Vector3(0.8, 0.45, 1.4)
+const SHIFT = new THREE.Vector3()
 type Built = {
   id: string
   label: THREE.Vector3
@@ -57,6 +57,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       canvas,
       antialias: true,
       alpha: false,
+      preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     })
   } catch (error) {
@@ -74,7 +75,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(FOG)
 
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 120)
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 140)
   camera.position.copy(HOME_POS)
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -98,9 +99,20 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   controls.zoomSpeed = 0.55
   controls.update()
 
-  const hemi = new THREE.HemisphereLight('#f3e4cf', '#6d8a74', 0.55)
+  let atlas
+  try {
+    atlas = await loadAtlas(renderer, disposal, options.onProgress)
+  } catch (error) {
+    disposal.dispose()
+    renderer.dispose()
+    options.onFail(error)
+    return inert()
+  }
+  scene.environment = atlas.environment
+
+  const hemi = new THREE.HemisphereLight('#f3e4cf', '#6d8a74', 0.42)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight('#ffc48a', 2.35)
+  const sun = new THREE.DirectionalLight('#ffc48a', 1.85)
   sun.position.set(-18, 14, 10)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
@@ -117,47 +129,47 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   fill.position.set(14, 9, -8)
   scene.add(fill)
 
-  buildShore(scene, disposal)
-  const lake = buildLake(scene, disposal)
-  lake.material.fog = false
-  buildPath(scene, disposal)
+  buildShore(scene, disposal, atlas)
+  buildLake(scene, disposal, atlas)
+  buildPath(scene, disposal, atlas)
 
   const built: Built[] = []
-  const bobbers: THREE.Object3D[] = []
+  const bobbers: { object: THREE.Object3D; base: number; phase: number; amplitude: number }[] = []
+  const bob = (object: THREE.Object3D, amplitude = 0.04) => {
+    bobbers.push({ object, base: object.position.y, phase: bobbers.length * 1.17, amplitude })
+  }
 
   for (const anchor of options.anchors) {
     const [x, z] = anchor.position
-    let place: { label: THREE.Vector3; focus: THREE.Vector3; bob?: THREE.Object3D }
+    let place: { label: THREE.Vector3; focus: THREE.Vector3 }
     switch (anchor.id) {
       case 'newyork':
-        place = buildHouse(scene, disposal, x, z)
+        place = buildHouse(scene, disposal, atlas, x, z)
         break
       case 'music':
-        place = buildStage(scene, disposal, x, z)
+        place = buildStage(scene, disposal, atlas, x, z)
         break
       case 'range':
-        place = buildRange(scene, disposal, x, z)
+        place = buildRange(scene, disposal, atlas, x, z)
         break
       case 'queens':
-        place = buildQueens(scene, disposal, x, z)
+        place = buildQueens(scene, disposal, atlas, x, z)
         break
       case 'seattle':
-        place = buildSeattle(scene, disposal, x, z)
+        place = buildSeattle(scene, disposal, atlas, x, z, bob)
         break
       case 'microsoft':
-        place = buildMicrosoft(scene, disposal, x, z)
+        place = buildMicrosoft(scene, disposal, atlas, x, z)
         break
       default:
-        place = buildStone(scene, disposal, x, z)
+        place = buildStone(scene, disposal, atlas, x, z, anchor.id)
         break
     }
-    if (place.bob) bobbers.push(place.bob)
     built.push({ id: anchor.id, label: place.label, focus: place.focus, element: anchor.element })
   }
 
-  if (options.anchors.some((anchor) => !MOMENTS.has(anchor.id))) {
-    buildYardBoxes(scene, disposal)
-  }
+  buildGraveyard(scene, disposal, atlas)
+  buildWatercraft(scene, disposal, atlas, bob)
 
   const projected: ProjectedAnchor[] = built.map((item) => ({
     id: item.id,
@@ -181,7 +193,6 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   const timer = new THREE.Timer()
   timer.connect(document)
   let motionTime = 0
-  const bobBase = bobbers.map((object) => object.position.y)
 
   controls.addEventListener('start', () => {
     dragging = true
@@ -219,20 +230,27 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       goalPos.copy(restPos)
       goalTarget.copy(restTarget)
       if (focus) {
-        goalPos.lerp(focus, 0.15)
-        goalTarget.lerp(focus, 0.15)
+        SHIFT.copy(focus).sub(restTarget).multiplyScalar(0.15)
+        goalPos.add(SHIFT)
+        goalTarget.add(SHIFT)
       }
       const blend = 1 - Math.exp(-3.4 * dt)
       camera.position.lerp(goalPos, blend)
       controls.target.lerp(goalTarget, blend)
     }
 
-    bobbers.forEach((object, index) => {
-      const base = bobBase[index]
-      const amp = still() ? 0 : 0.045
-      const target = base + Math.sin(motionTime * 0.85 + index) * amp
-      object.position.y = still() ? THREE.MathUtils.damp(object.position.y, base, 4, dt) : target
-    })
+    if (!still()) {
+      atlas.waterNormal.offset.x = motionTime * 0.018
+      atlas.waterNormal.offset.y = motionTime * 0.01
+    }
+    for (const item of bobbers) {
+      const target = still()
+        ? item.base
+        : item.base + Math.sin(motionTime * 0.8 + item.phase) * item.amplitude
+      item.object.position.y = still()
+        ? THREE.MathUtils.damp(item.object.position.y, item.base, 5, dt)
+        : target
+    }
 
     controls.enableDamping = !reduced
     controls.update()

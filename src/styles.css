@@ -198,13 +198,22 @@ a {
   border-radius: 10px;
   background: rgba(255, 252, 247, 0.78);
   box-shadow: 0 5px 18px rgba(70, 58, 40, 0.08);
-  backdrop-filter: blur(12px);
   font-size: 14px;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 5px);
   transition: opacity 0.2s, transform 0.2s;
+}
+
+.hover-label::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(255, 252, 247, 0.42);
+  backdrop-filter: blur(12px);
 }
 
 .anchor:hover .hover-label,
