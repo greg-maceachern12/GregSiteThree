@@ -13,6 +13,7 @@ import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
 import { FOG } from './ground'
 import { buildLake, buildWatercraft, setWaterTime } from './lake'
+import { buildRiver } from './river'
 import { buildPath } from './paths'
 import { buildGraveyard, buildStone } from './places/graveyard'
 import { buildHouse } from './places/house'
@@ -145,6 +146,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
   buildShore(scene, disposal, atlas)
   const water = buildLake(scene, disposal, atlas)
+  const river = buildRiver(scene, disposal, atlas)
   buildPath(scene, disposal, atlas)
 
   const built: Built[] = []
@@ -272,6 +274,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     }
 
     setWaterTime(water, motionTime)
+    setWaterTime(river, motionTime)
     ;(bokeh.uniforms as { focus: { value: number } }).focus.value = camera.position.distanceTo(controls.target)
     for (const item of bobbers) {
       const target = still()

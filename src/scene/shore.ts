@@ -6,6 +6,7 @@ import type { Disposal } from './disposal'
 import { standard } from './disposal'
 import { FOG, lakeRadius, smoothstep, terrainHeight } from './ground'
 import { distanceToPath } from './paths'
+import { distanceToRiver } from './riverCourse'
 
 const CLEARINGS: Array<[number, number, number]> = [
   [-2.4, 13.2, 8.2],
@@ -35,8 +36,9 @@ export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: At
     const z = position.getZ(i)
     const radius = lakeRadius(x, z)
     const sand = smoothstep(0.86, 0.98, radius) * (1 - smoothstep(1.1, 1.36, radius))
-    const dirt = smoothstep(1.35, 0.15, distanceToPath(x, z)) * (1 - sand)
-    splat[i * 3] = sand
+    const creek = smoothstep(2.4, 0.45, distanceToRiver(x, z)) * smoothstep(1.0, 1.14, radius)
+    const dirt = smoothstep(1.35, 0.15, distanceToPath(x, z)) * (1 - Math.max(sand, creek))
+    splat[i * 3] = Math.min(1, sand + creek * 0.85)
     splat[i * 3 + 1] = dirt
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(splat, 3))
@@ -169,6 +171,7 @@ function plantTrees(
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (TREE_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (distanceToPath(x, z) < 1.35) continue
+    if (distanceToRiver(x, z) < 1.85) continue
     if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < spacing)) continue
     if (avoid.some((spot) => Math.hypot(spot.x - x, spot.z - z) < spacing * 0.72)) continue
     const scale = minScale + rand() * (maxScale - minScale)
@@ -227,6 +230,7 @@ function scatter(count: number, seed: number, minRadius: number, maxRadius: numb
     if (x > -5.1 && x < 0.45 && z > 15.4 && z < 19.65) continue
     if (ROCK_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (distanceToPath(x, z) < 1.05) continue
+    if (distanceToRiver(x, z) < 1.45) continue
     if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < spacing)) continue
     const scale = 0.75 + rand() * 0.55
     spots.push({
@@ -380,6 +384,7 @@ function addRocks(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
     if (cluster < 0.15) continue
     if (ROCK_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (distanceToPath(x, z) < 1.15) continue
+    if (distanceToRiver(x, z) < 1.7) continue
     if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 1.15)) continue
     spots.push({
       x,

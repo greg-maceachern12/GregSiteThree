@@ -1,3 +1,5 @@
+import { carveRiver } from './riverCourse'
+
 export const LAKE_RX = 17
 export const LAKE_RZ = 12.2
 export const LAKE_CZ = -0.6
@@ -60,6 +62,7 @@ export function terrainHeight(x: number, z: number) {
   const riseZ = z - 17.6
   const rise = Math.exp(-(riseX * riseX) / 24 - (riseZ * riseZ) / 16)
   height += rise * 1.35 * land
+  height = carveRiver(height, x, z, radius)
 
   return height
 }
