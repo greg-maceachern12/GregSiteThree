@@ -224,6 +224,7 @@ function scatter(count: number, seed: number, minRadius: number, maxRadius: numb
     const radius = lakeRadius(x, z)
     if (radius < minRadius || radius > maxRadius) continue
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach * keep)) continue
+    if (x > -5.1 && x < 0.45 && z > 15.4 && z < 19.65) continue
     if (ROCK_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (distanceToPath(x, z) < 1.05) continue
     if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < spacing)) continue
