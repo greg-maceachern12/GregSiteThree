@@ -41,9 +41,10 @@ export function buildLake(parent: THREE.Object3D, disposal: Disposal, atlas: Atl
     map: atlas.waterColor,
     roughnessMap: atlas.waterRoughness,
     normalMap: atlas.waterNormal,
-    roughness: 1,
-    metalness: 0.08,
-    envMapIntensity: 1.05,
+    normalScale: new THREE.Vector2(1.15, 1.15),
+    roughness: 0.62,
+    metalness: 0.03,
+    envMapIntensity: 1.7,
   })
   material.fog = false
   const mesh = new THREE.Mesh(geometry, material)

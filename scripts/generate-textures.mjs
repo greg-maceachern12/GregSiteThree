@@ -334,18 +334,20 @@ function water() {
       const worldX = minX + u * (maxX - minX)
       const i = y * SIZE + x
       const radius = lakeRadius(worldX, worldZ)
-      const edge = smoothstep(0.28, 0.98, radius)
-      const n = fbm(worldX * 0.4, worldZ * 0.4) * 0.04
-      const deep = [26, 104, 114]
-      const shallow = [198, 230, 222]
-      rgb(
-        color,
-        i,
-        mix(deep[0], shallow[0], edge) + n * 255,
-        mix(deep[1], shallow[1], edge) + n * 255,
-        mix(deep[2], shallow[2], edge) + n * 255,
-      )
-      gray(rough, i, mix(42, 150, edge))
+      const edge = smoothstep(0.62, 0.98, radius)
+      const sand = smoothstep(0.92, 1.04, radius)
+      const n = fbm(worldX * 0.55, worldZ * 0.55) * 0.035
+      const deep = [36, 128, 138]
+      const shallow = [168, 214, 204]
+      const shore = [214, 206, 176]
+      let r = mix(deep[0], shallow[0], edge)
+      let g = mix(deep[1], shallow[1], edge)
+      let b = mix(deep[2], shallow[2], edge)
+      r = mix(r, shore[0], sand)
+      g = mix(g, shore[1], sand)
+      b = mix(b, shore[2], sand)
+      rgb(color, i, r + n * 255, g + n * 255, b + n * 255)
+      gray(rough, i, mix(55, 150, Math.max(edge, sand)))
     }
   }
   return { color, rough }
@@ -358,12 +360,13 @@ function waterNormal() {
     for (let x = 0; x < SIZE; x++) {
       const u = x / SIZE
       height[y * SIZE + x] =
-        Math.sin((u * 6 + v * 2) * Math.PI * 2) * 0.45 +
-        Math.sin((u * 3 - v * 5) * Math.PI * 2) * 0.3 +
-        Math.sin((u * 11 + v * 9) * Math.PI * 2) * 0.16
+        Math.sin((u * 9 + v * 4) * Math.PI * 2) * 0.34 +
+        Math.sin((u * 6 - v * 8) * Math.PI * 2) * 0.26 +
+        Math.sin((u * 19 + v * 15) * Math.PI * 2) * 0.2 +
+        Math.sin((u * 33 - v * 24) * Math.PI * 2) * 0.11
     }
   }
-  return normalsFromHeight(height, 1.8)
+  return normalsFromHeight(height, 2.6)
 }
 
 const sets = {

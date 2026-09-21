@@ -67,7 +67,7 @@ export function buildHouse(
     receive: false,
   })
 
-  const lamp = new THREE.PointLight('#ffb15e', 7, 8, 2)
+  const lamp = new THREE.PointLight('#ffb15e', 2.2, 5.5, 2)
   lamp.position.set(0.6, 1.8, 1.2)
   group.add(lamp)
 

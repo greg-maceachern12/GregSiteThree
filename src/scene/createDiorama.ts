@@ -81,7 +81,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
+  renderer.toneMappingExposure = 1.04
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   renderer.setClearColor(FOG, 1)
@@ -109,24 +109,30 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     return inert()
   }
   scene.environment = atlas.environment
+  scene.environmentIntensity = 0.9
 
-  const hemi = new THREE.HemisphereLight('#f3e4cf', '#6d8a74', 0.42)
+  const hemi = new THREE.HemisphereLight('#f6ead8', '#5f7d6c', 0.26)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight('#ffc48a', 1.85)
-  sun.position.set(-18, 14, 10)
+  const sun = new THREE.DirectionalLight('#ffc48a', 2.55)
+  sun.position.set(-18, 16, 6)
+  sun.target.position.set(0.4, 0.6, 3.2)
+  scene.add(sun.target)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.radius = 4
+  sun.shadow.bias = -0.00015
+  sun.shadow.normalBias = 0.018
+  sun.shadow.intensity = 0.82
   sun.shadow.camera.near = 2
   sun.shadow.camera.far = 70
-  sun.shadow.camera.left = -28
-  sun.shadow.camera.right = 28
-  sun.shadow.camera.top = 28
-  sun.shadow.camera.bottom = -28
-  sun.shadow.bias = -0.00025
-  sun.shadow.normalBias = 0.035
+  sun.shadow.camera.left = -32
+  sun.shadow.camera.right = 32
+  sun.shadow.camera.top = 32
+  sun.shadow.camera.bottom = -32
+  sun.shadow.camera.updateProjectionMatrix()
   scene.add(sun)
-  const fill = new THREE.DirectionalLight('#d7e6f2', 0.32)
-  fill.position.set(14, 9, -8)
+  const fill = new THREE.DirectionalLight('#d7e6f2', 0.16)
+  fill.position.set(16, 8, -10)
   scene.add(fill)
 
   buildShore(scene, disposal, atlas)

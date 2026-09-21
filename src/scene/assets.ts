@@ -118,7 +118,7 @@ export async function loadAtlas(
   const [waterColor, waterRoughness, waterNormal, hdr] = await Promise.all([
     loadTexture('/textures/water-color.webp', 'color', true, [1, 1]),
     loadTexture('/textures/water-roughness.webp', 'data', true, [1, 1]),
-    loadTexture('/textures/water-normal.webp', 'data', false, [4, 4]),
+    loadTexture('/textures/water-normal.webp', 'data', false, [3, 3]),
     new HDRLoader(manager).loadAsync('/env/afternoon.hdr'),
   ])
 
