@@ -1,7 +1,9 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { Atlas } from './assets'
 import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
+import { standard } from './disposal'
 import { FOG, lakeRadius, smoothstep, terrainHeight } from './ground'
 import { distanceToPath } from './paths'
 
@@ -40,6 +42,7 @@ export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: At
   mesh.receiveShadow = true
   parent.add(mesh)
   addPines(parent, disposal, atlas)
+  addGroundCover(parent, disposal, atlas)
   addRocks(parent, disposal, atlas)
   return mesh
 }
@@ -93,6 +96,18 @@ function shadeGround(material: THREE.MeshStandardMaterial) {
   material.customProgramCacheKey = () => 'ground-splat-rim'
 }
 
+type TreeSpot = {
+  x: number
+  z: number
+  scale: number
+  yaw: number
+  leaf: boolean
+  variant: number
+  sx: number
+  sy: number
+  sz: number
+}
+
 function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
   const rand = mulberry32(27)
   const spots: Array<{ x: number; z: number; scale: number; yaw: number }> = []
@@ -112,28 +127,247 @@ function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
     throw new Error(`Expected at least 20 shore pines, found ${spots.length}`)
   }
 
-  const trunkGeo = disposal.geo(new THREE.CylinderGeometry(0.08, 0.12, 0.8, 6))
-  trunkGeo.translate(0, 0.4, 0)
-  const crownGeo = disposal.geo(new THREE.ConeGeometry(0.58, 1.65, 7))
-  crownGeo.translate(0, 1.55, 0)
-  const bark = surfaceMaterial(disposal, atlas.weathered)
-  const needles = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.92 })
-  const trunks = new THREE.InstancedMesh(trunkGeo, bark, spots.length)
-  const crowns = new THREE.InstancedMesh(crownGeo, needles, spots.length)
-  trunks.castShadow = true
-  trunks.receiveShadow = true
-  crowns.castShadow = true
-  crowns.receiveShadow = true
-  const dummy = new THREE.Object3D()
-  spots.forEach((spot, index) => {
-    dummy.position.set(spot.x, terrainHeight(spot.x, spot.z), spot.z)
-    dummy.rotation.set(0, spot.yaw, 0)
-    dummy.scale.set(spot.scale, spot.scale, spot.scale)
-    dummy.updateMatrix()
-    trunks.setMatrixAt(index, dummy.matrix)
-    crowns.setMatrixAt(index, dummy.matrix)
+  const jitter = mulberry32(44)
+  let leaves = 0
+  let pines = 0
+  const trees: TreeSpot[] = spots.map((spot, index) => {
+    const leaf = index % 6 === 0
+    const variant = leaf ? leaves++ % 3 : pines++ % 4
+    const thick = 0.9 + jitter() * 0.22
+    return {
+      ...spot,
+      leaf,
+      variant,
+      sx: spot.scale * thick,
+      sy: spot.scale * (0.9 + jitter() * 0.22),
+      sz: spot.scale * thick,
+    }
   })
-  parent.add(trunks, crowns)
+
+  const bark = surfaceMaterial(disposal, atlas.weathered, { roughness: 0.9 })
+  const needles = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.92 })
+  const canopy = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.84 })
+  const blossom = standard(disposal, { color: '#f3c4cf', roughness: 0.64, metalness: 0.02 })
+  const trunkGeo = disposal.geo(new THREE.CylinderGeometry(0.05, 0.14, 1.05, 6))
+  trunkGeo.translate(0, 0.52, 0)
+
+  placeInstances(parent, trunkGeo, bark, trees, true, (color, index) => {
+    const warm = 0.72 + jitter() * 0.28
+    color.setRGB(warm, warm * 0.9, warm * 0.72)
+    void index
+  })
+
+  for (let variant = 0; variant < 4; variant++) {
+    const group = trees.filter((tree) => !tree.leaf && tree.variant === variant)
+    placeInstances(parent, coniferGeometry(disposal, variant), needles, group, true, (color) => {
+      color.setRGB(0.72 + jitter() * 0.28, 0.8 + jitter() * 0.2, 0.62 + jitter() * 0.16)
+    })
+  }
+  for (let variant = 0; variant < 3; variant++) {
+    const group = trees.filter((tree) => tree.leaf && tree.variant === variant)
+    placeInstances(parent, deciduousGeometry(disposal, variant), canopy, group, true, (color) => {
+      color.setRGB(0.86 + jitter() * 0.14, 0.9 + jitter() * 0.1, 0.55 + jitter() * 0.18)
+    })
+  }
+  placeInstances(
+    parent,
+    blossomGeometry(disposal),
+    blossom,
+    trees.filter((tree) => tree.leaf && tree.variant === 2),
+    true,
+    (color) => {
+      color.setRGB(1, 0.78 + jitter() * 0.18, 0.8 + jitter() * 0.12)
+    },
+  )
+}
+
+function addGroundCover(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
+  const grassMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.95 })
+  const shrubMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.88 })
+  const petal = standard(disposal, { color: '#ffffff', roughness: 0.7, metalness: 0.02 })
+  const grass = scatter(86, 19, 1.08, 1.7, 0.85, 0.72)
+  const shrubs = scatter(26, 63, 1.16, 1.62, 1.7, 0.95)
+  const flowers = scatter(34, 11, 1.04, 1.3, 0.85, 1)
+  const tint = mulberry32(8)
+
+  placeInstances(parent, tuftGeometry(disposal), grassMat, grass, false, (color) => {
+    color.setRGB(0.62 + tint() * 0.3, 0.78 + tint() * 0.2, 0.48 + tint() * 0.16)
+  })
+  placeInstances(parent, shrubGeometry(disposal), shrubMat, shrubs, true, (color) => {
+    color.setRGB(0.7 + tint() * 0.25, 0.82 + tint() * 0.16, 0.52 + tint() * 0.14)
+  })
+  placeInstances(parent, flowerStem(disposal), grassMat, flowers, false, (color) => {
+    color.setRGB(0.7, 0.82, 0.5)
+  })
+  const flowerColors = ['#f2d7de', '#f0e2b0', '#efe8dc', '#e7b7c6']
+  placeInstances(parent, flowerHead(disposal), petal, flowers, false, (color, index) => {
+    color.set(flowerColors[index % flowerColors.length])
+    color.offsetHSL(0, (tint() - 0.5) * 0.08, (tint() - 0.5) * 0.06)
+  })
+}
+
+function scatter(count: number, seed: number, minRadius: number, maxRadius: number, spacing: number, keep: number) {
+  const rand = mulberry32(seed)
+  const spots: TreeSpot[] = []
+  let guard = 0
+  while (spots.length < count && guard < count * 90) {
+    guard += 1
+    const x = (rand() * 2 - 1) * 30
+    const z = (rand() * 2 - 1) * 30
+    const radius = lakeRadius(x, z)
+    if (radius < minRadius || radius > maxRadius) continue
+    if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach * keep)) continue
+    if (ROCK_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
+    if (distanceToPath(x, z) < 1.05) continue
+    if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < spacing)) continue
+    const scale = 0.75 + rand() * 0.55
+    spots.push({
+      x,
+      z,
+      scale,
+      yaw: rand() * Math.PI * 2,
+      leaf: false,
+      variant: 0,
+      sx: scale * (0.85 + rand() * 0.3),
+      sy: scale * (0.8 + rand() * 0.45),
+      sz: scale * (0.85 + rand() * 0.3),
+    })
+  }
+  return spots
+}
+
+function placeInstances(
+  parent: THREE.Object3D,
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material,
+  items: TreeSpot[],
+  shadows: boolean,
+  tint: (color: THREE.Color, index: number) => void,
+) {
+  if (items.length === 0) return
+  const mesh = new THREE.InstancedMesh(geometry, material, items.length)
+  mesh.castShadow = shadows
+  mesh.receiveShadow = true
+  mesh.frustumCulled = false
+  const dummy = new THREE.Object3D()
+  const color = new THREE.Color()
+  items.forEach((item, index) => {
+    dummy.position.set(item.x, terrainHeight(item.x, item.z), item.z)
+    dummy.rotation.set(0, item.yaw, 0)
+    dummy.scale.set(item.sx, item.sy, item.sz)
+    dummy.updateMatrix()
+    mesh.setMatrixAt(index, dummy.matrix)
+    tint(color, index)
+    mesh.setColorAt(index, color)
+  })
+  parent.add(mesh)
+}
+
+function merged(disposal: Disposal, parts: THREE.BufferGeometry[]) {
+  const geometry = mergeGeometries(parts)
+  if (!geometry) throw new Error('Unable to merge plant geometry')
+  geometry.computeVertexNormals()
+  return disposal.geo(geometry)
+}
+
+function coniferGeometry(disposal: Disposal, variant: number) {
+  const cones: Array<[number, number, number]> =
+    variant === 0
+      ? [
+          [0.58, 1.05, 1.4],
+          [0.4, 0.85, 2.1],
+        ]
+      : variant === 1
+        ? [
+            [0.74, 0.72, 1.2],
+            [0.52, 0.62, 1.7],
+            [0.3, 0.5, 2.12],
+          ]
+        : variant === 2
+          ? [[0.46, 1.2, 1.55]]
+          : [[0.4, 0.78, 1.2]]
+  const parts: THREE.BufferGeometry[] = cones.map(([radius, height, y]) => {
+    const cone = new THREE.ConeGeometry(radius, height, variant === 2 ? 5 : 7)
+    cone.translate(0, y, 0)
+    return cone
+  })
+  const cards = variant === 2 ? 5 : variant === 3 ? 2 : 3
+  const reach = variant === 1 ? 0.68 : 0.52
+  for (let i = 0; i < cards; i++) {
+    const box = new THREE.BoxGeometry(0.18, 0.4, 0.045)
+    box.translate(0, 0, reach)
+    box.rotateY((i / cards) * Math.PI + variant * 0.4)
+    box.translate(0, 1.2 + (i % 3) * 0.28, 0)
+    parts.push(box)
+  }
+  return merged(disposal, parts)
+}
+
+function deciduousGeometry(disposal: Disposal, variant: number) {
+  const parts: THREE.BufferGeometry[] = []
+  if (variant === 0) {
+    const crown = new THREE.IcosahedronGeometry(0.62, 0)
+    crown.scale(1.08, 0.82, 1)
+    crown.translate(0, 1.85, 0)
+    parts.push(crown)
+  } else if (variant === 1) {
+    const left = new THREE.IcosahedronGeometry(0.48, 0)
+    left.scale(1.15, 0.9, 1)
+    left.translate(-0.24, 1.72, 0.06)
+    const right = new THREE.IcosahedronGeometry(0.4, 0)
+    right.scale(0.95, 1.08, 0.9)
+    right.translate(0.28, 2.08, -0.08)
+    parts.push(left, right)
+  } else {
+    const crown = new THREE.IcosahedronGeometry(0.68, 0)
+    crown.scale(1.22, 0.7, 1.08)
+    crown.translate(0, 1.75, 0)
+    parts.push(crown)
+  }
+  return merged(disposal, parts)
+}
+
+function blossomGeometry(disposal: Disposal) {
+  const parts = [
+    [0.36, 2.08, 0.12],
+    [-0.42, 1.86, 0.18],
+    [0.08, 1.68, -0.4],
+    [0.18, 2.16, -0.16],
+  ].map(([x, y, z]) => {
+    const puff = new THREE.SphereGeometry(0.12, 6, 5)
+    puff.translate(x, y, z)
+    return puff
+  })
+  return merged(disposal, parts)
+}
+
+function tuftGeometry(disposal: Disposal) {
+  const parts = [0, 1, 2].map((i) => {
+    const blade = new THREE.ConeGeometry(0.11, 0.52, 4)
+    blade.translate((i - 1) * 0.1, 0.26, i === 1 ? 0.06 : -0.03)
+    blade.rotateZ((i - 1) * 0.2)
+    return blade
+  })
+  return merged(disposal, parts)
+}
+
+function shrubGeometry(disposal: Disposal) {
+  const crown = new THREE.IcosahedronGeometry(0.36, 0)
+  crown.scale(1.2, 0.72, 1.05)
+  crown.translate(0, 0.28, 0)
+  return merged(disposal, [crown])
+}
+
+function flowerStem(disposal: Disposal) {
+  const stem = new THREE.CylinderGeometry(0.016, 0.022, 0.24, 4)
+  stem.translate(0, 0.12, 0)
+  return disposal.geo(stem)
+}
+
+function flowerHead(disposal: Disposal) {
+  const head = new THREE.SphereGeometry(0.09, 6, 5)
+  head.translate(0, 0.28, 0)
+  return disposal.geo(head)
 }
 
 const ROCK_KEEP: Array<[number, number, number]> = [
