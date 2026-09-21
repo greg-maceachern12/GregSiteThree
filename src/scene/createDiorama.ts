@@ -7,6 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { buildAnimals } from './animals'
 import { placeCard, projectAnchors, type ProjectedAnchor } from './anchors'
 import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
@@ -183,6 +184,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
   buildGraveyard(scene, disposal, atlas)
   buildWatercraft(scene, disposal, atlas, bob)
+  buildAnimals(scene, disposal, bob)
 
   const composer = new EffectComposer(renderer)
   composer.addPass(new RenderPass(scene, camera))
