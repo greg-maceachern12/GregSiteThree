@@ -4,6 +4,8 @@ export type Card = {
   role?: string
   detail?: string
   href?: string
+  icon?: string
+  place?: 'stone' | 'cottage'
   position: [number, number]
 }
 

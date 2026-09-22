@@ -15,6 +15,7 @@ const CLEARINGS: Array<[number, number, number]> = [
   [-12.6, -13.4, 3.8],
   [11.2, -15.4, 4],
   [-3.2, 17.8, 4.8],
+  [9.05, 11.35, 3.35],
 ]
 
 const TREE_KEEP: Array<[number, number, number]> = [
@@ -368,6 +369,7 @@ const ROCK_KEEP: Array<[number, number, number]> = [
   [1.5, -11.6, 2.2],
   [11.2, -15.4, 2.6],
   [-0.6, 16.2, 1.3],
+  [9.05, 11.35, 2.8],
 ]
 
 function addRocks(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {

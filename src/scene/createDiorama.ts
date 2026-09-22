@@ -16,6 +16,7 @@ import { buildLake, buildWatercraft, setWaterTime } from './lake'
 import { buildRiver } from './river'
 import { buildPath } from './paths'
 import { buildGraveyard, buildStone } from './places/graveyard'
+import { buildCottage, buildVillageGreen } from './places/village'
 import { buildHouse } from './places/house'
 import { buildMicrosoft } from './places/microsoft'
 import { buildQueens } from './places/queens'
@@ -29,6 +30,8 @@ export type AnchorInput = {
   name: string
   position: [number, number]
   element: HTMLButtonElement
+  icon?: string
+  place?: 'stone' | 'cottage'
 }
 
 export type DioramaOptions = {
@@ -120,6 +123,16 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   scene.environment = atlas.environment
   scene.environmentIntensity = 1.05
 
+  let icons = new Map<string, THREE.Texture>()
+  try {
+    icons = await loadIcons(disposal, options.anchors.map((anchor) => anchor.icon))
+  } catch (error) {
+    disposal.dispose()
+    renderer.dispose()
+    options.onFail(error)
+    return inert()
+  }
+
   const hemi = new THREE.HemisphereLight('#f4efe6', '#6d8c98', 0.32)
   scene.add(hemi)
   const sun = new THREE.DirectionalLight('#ffc48a', 2.45)
@@ -178,13 +191,26 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
         place = buildMicrosoft(scene, disposal, atlas, x, z)
         break
       default:
-        place = buildStone(scene, disposal, atlas, x, z, anchor.id)
+        if (anchor.place === 'cottage') {
+          place = buildCottage(scene, disposal, atlas, x, z, anchor.icon ? icons.get(anchor.icon) : undefined)
+        } else {
+          place = buildStone(
+            scene,
+            disposal,
+            atlas,
+            x,
+            z,
+            anchor.id,
+            anchor.icon ? icons.get(anchor.icon) : undefined,
+          )
+        }
         break
     }
     built.push({ id: anchor.id, label: place.label, focus: place.focus, element: anchor.element })
   }
 
   buildGraveyard(scene, disposal, atlas)
+  buildVillageGreen(scene, disposal, atlas)
   buildWatercraft(scene, disposal, atlas, bob)
   buildAnimals(scene, disposal, bob)
 
@@ -349,6 +375,21 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       if (card && !id) card.hidden = true
     },
   }
+}
+
+async function loadIcons(disposal: Disposal, urls: Array<string | undefined>) {
+  const unique = [...new Set(urls.filter((url): url is string => Boolean(url)))]
+  const loader = new THREE.TextureLoader()
+  const icons = new Map<string, THREE.Texture>()
+  await Promise.all(
+    unique.map(async (url) => {
+      const texture = await loader.loadAsync(url)
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.anisotropy = 8
+      icons.set(url, disposal.tex(texture))
+    }),
+  )
+  return icons
 }
 
 function inert(): Diorama {

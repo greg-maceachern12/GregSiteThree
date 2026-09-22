@@ -193,6 +193,9 @@ a {
   position: absolute;
   left: 50%;
   bottom: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 14px;
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 10px;
@@ -232,6 +235,15 @@ a {
   background: linear-gradient(135deg, rgba(255, 252, 247, 0.94), rgba(246, 239, 228, 0.86));
   box-shadow: 0 12px 36px rgba(60, 48, 32, 0.12), inset 0 1px #fff;
   backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.hover-label img,
+.project-icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 5px;
 }
 
 .card h2 {

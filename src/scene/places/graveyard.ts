@@ -28,25 +28,13 @@ const LOOP: Array<[number, number]> = [
   [LEFT, BACK],
 ]
 
-const STONES: Array<[number, number, MarkerKind]> = [
-  [-4.05, 17.95, 'headstone'],
-  [-2.65, 18.05, 'cross'],
-  [-1.3, 17.9, 'headstone'],
-  [-4.15, 17.1, 'ledger'],
-  [-2.5, 17.15, 'obelisk'],
-  [-1.15, 17.1, 'wood'],
-  [-3.9, 16.4, 'cross'],
-]
-
 const BLOOMS: Array<[number, number, string]> = [
-  [-4.3, 16.55, '#e7b7c4'],
-  [-2.15, 17.55, '#f0e2b0'],
-  [-3.2, 17.85, '#f4efe6'],
-  [-0.85, 17.4, '#e7b7c4'],
-  [0.02, 17.45, '#f0e2b0'],
+  [-4.4, 17.6, '#e7b7c4'],
+  [-2.15, 17.7, '#f0e2b0'],
+  [-3.35, 17.95, '#f4efe6'],
+  [-0.85, 17.85, '#e7b7c4'],
+  [0.02, 17.7, '#f0e2b0'],
 ]
-
-type MarkerKind = 'headstone' | 'cross' | 'ledger' | 'obelisk' | 'wood'
 
 export function buildStone(
   parent: THREE.Object3D,
@@ -55,14 +43,15 @@ export function buildStone(
   x: number,
   z: number,
   id: string,
+  icon?: THREE.Texture,
 ) {
   const ground = terrainHeight(x, z)
-  const mesh = marker(disposal, atlas, 'headstone', yaw(id))
+  const mesh = marker(disposal, atlas, yaw(id), icon)
   mesh.position.set(x, ground, z)
   parent.add(mesh)
   return {
     label: new THREE.Vector3(x, ground + 1.7, z),
-    focus: new THREE.Vector3(x, ground + 0.5, z),
+    focus: new THREE.Vector3(x, ground + 0.55, z),
   }
 }
 
@@ -83,12 +72,6 @@ export function buildGraveyard(parent: THREE.Object3D, disposal: Disposal, atlas
   addBench(parent, disposal, wood)
   addLantern(parent, disposal, iron, warm)
 
-  for (const [x, z, kind] of STONES) {
-    const mesh = marker(disposal, atlas, kind, ((x * 13.1 + z * 7.7) % 1) * 0.5 - 0.25)
-    mesh.position.set(x, terrainHeight(x, z), z)
-    parent.add(mesh)
-  }
-
   const bloom = disposal.geo(new THREE.SphereGeometry(0.13, 7, 5))
   for (const [x, z, color] of BLOOMS) {
     const material = standard(disposal, { color, roughness: 0.62 })
@@ -108,7 +91,7 @@ export function buildGraveyard(parent: THREE.Object3D, disposal: Disposal, atlas
   const bush = disposal.geo(new THREE.IcosahedronGeometry(0.34, 0))
   for (const [x, z, scale] of [
     [-4.42, 18.28, 1],
-    [0.02, 16.72, 0.9],
+    [0.05, 18.15, 0.9],
   ] as const) {
     addMesh(parent, bush, leaf, [x, terrainHeight(x, z) + 0.18 * scale, z]).scale.set(scale, scale * 0.72, scale)
   }
@@ -295,40 +278,51 @@ function addBench(parent: THREE.Object3D, disposal: Disposal, wood: THREE.Materi
 }
 
 function addLantern(parent: THREE.Object3D, disposal: Disposal, iron: THREE.Material, warm: THREE.Material) {
-  const x = -1.2
-  const z = 16.28
+  const x = -4.35
+  const z = 18.05
   const y = terrainHeight(x, z)
   addMesh(parent, disposal.geo(new THREE.CylinderGeometry(0.045, 0.05, 1.05, 6)), iron, [x, y + 0.52, z])
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.22, 0.26, 0.22)), warm, [x, y + 1.12, z], { cast: false })
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.28, 0.05, 0.28)), iron, [x, y + 1.28, z])
 }
 
-function marker(disposal: Disposal, atlas: Atlas, kind: MarkerKind, rotation: number) {
+function marker(disposal: Disposal, atlas: Atlas, rotation: number, icon?: THREE.Texture) {
   const group = new THREE.Group()
   group.rotation.y = rotation
   const slate = surfaceMaterial(disposal, atlas.slate, { roughness: 0.9 })
-  const moss = surfaceMaterial(disposal, atlas.slate, { color: '#b7c2a4', roughness: 0.94 })
-  const wood = surfaceMaterial(disposal, atlas.weathered, { roughness: 0.92 })
+  const plaque = standard(disposal, { color: '#f4efe6', roughness: 0.62, metalness: 0.02 })
 
-  if (kind === 'headstone') {
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.58, 0.1, 0.26)), slate, [0, 0.05, 0])
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.46, 0.9, 0.12)), slate, [0, 0.52, 0])
-    const cap = addMesh(group, disposal.geo(new THREE.SphereGeometry(0.23, 8, 6)), slate, [0, 0.92, 0])
-    cap.scale.set(1, 0.48, 0.52)
-  } else if (kind === 'cross') {
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.12, 1.02, 0.1)), wood, [0, 0.51, 0])
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.48, 0.1, 0.09)), wood, [0, 0.76, 0])
-  } else if (kind === 'ledger') {
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.72, 0.1, 0.42)), moss, [0, 0.06, 0])
-  } else if (kind === 'obelisk') {
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.4, 0.1, 0.4)), slate, [0, 0.05, 0])
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.24, 0.92, 0.24)), moss, [0, 0.54, 0])
-    addMesh(group, disposal.geo(new THREE.ConeGeometry(0.14, 0.26, 4)), moss, [0, 1.1, 0])
-  } else {
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.16, 0.92, 0.4)), wood, [0, 0.48, 0])
-    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.32, 0.08, 0.1)), wood, [0, 0.78, 0])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.72, 0.1, 0.32)), slate, [0, 0.05, 0])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.56, 1.05, 0.14)), slate, [0, 0.58, 0])
+  const cap = addMesh(group, disposal.geo(new THREE.SphereGeometry(0.28, 8, 6)), slate, [0, 1.05, 0])
+  cap.scale.set(1, 0.42, 0.5)
+
+  if (icon) {
+    const sign = new THREE.Group()
+    sign.position.set(0, 0.72, 0.2)
+    sign.rotation.x = -1.05
+    group.add(sign)
+    addMesh(sign, disposal.geo(new THREE.BoxGeometry(0.58, 0.58, 0.04)), plaque, [0, 0, 0], { cast: false })
+    addMesh(sign, disposal.geo(new THREE.PlaneGeometry(0.5, 0.5)), iconMaterial(disposal, icon), [0, 0, 0.03], {
+      cast: false,
+      receive: false,
+    })
   }
   return group
+}
+
+function iconMaterial(disposal: Disposal, map: THREE.Texture) {
+  return disposal.mat(
+    new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      alphaTest: 0.15,
+      toneMapped: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    }),
+  )
 }
 
 function contains(x: number, z: number, polygon: Array<[number, number]>) {
