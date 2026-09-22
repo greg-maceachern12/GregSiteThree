@@ -143,7 +143,7 @@ function shadeRiver(material: THREE.MeshStandardMaterial) {
          normal = normalize(tbn * mapN);`,
       )
   }
-  material.customProgramCacheKey = () => 'river-flow'
+  material.customProgramCacheKey = () => 'river-flow-tahoe'
 }
 
 function addStones(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
