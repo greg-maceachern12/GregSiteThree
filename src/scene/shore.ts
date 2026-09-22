@@ -4,7 +4,7 @@ import type { Atlas } from './assets'
 import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
 import { standard } from './disposal'
-import { FOG, lakeRadius, smoothstep, terrainHeight } from './ground'
+import { FOG, WATER_Y, lakeRadius, smoothstep, terrainHeight } from './ground'
 import { distanceToPath } from './paths'
 import { distanceToRiver } from './riverCourse'
 
@@ -25,7 +25,7 @@ const TREE_KEEP: Array<[number, number, number]> = [
 ]
 
 export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
-  const geometry = disposal.geo(new THREE.PlaneGeometry(78, 78, 150, 150))
+  const geometry = disposal.geo(new THREE.PlaneGeometry(96, 96, 180, 180))
   geometry.rotateX(-Math.PI / 2)
   const position = geometry.attributes.position
   for (let i = 0; i < position.count; i++) {
@@ -50,10 +50,13 @@ export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: At
   const mesh = new THREE.Mesh(geometry, material)
   mesh.receiveShadow = true
   parent.add(mesh)
-  addPines(parent, disposal, atlas)
+  const windTime = { value: 0 }
+  const windAmp = { value: 1 }
+  addPines(parent, disposal, atlas, windTime, windAmp)
   addGroundCover(parent, disposal, atlas)
   addRocks(parent, disposal, atlas)
-  return mesh
+  addReeds(parent, disposal, atlas)
+  return { windTime, windAmp }
 }
 
 const fogColor = new THREE.Color(FOG)
@@ -61,8 +64,8 @@ const fogColor = new THREE.Color(FOG)
 function shadeGround(material: THREE.MeshStandardMaterial) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uRimColor = { value: fogColor }
-    shader.uniforms.uRimStart = { value: 22 }
-    shader.uniforms.uRimEnd = { value: 33 }
+    shader.uniforms.uRimStart = { value: 28 }
+    shader.uniforms.uRimEnd = { value: 44 }
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -117,17 +120,25 @@ type TreeSpot = {
   sz: number
 }
 
-function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
+function addPines(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  atlas: Atlas,
+  windTime: { value: number },
+  windAmp: { value: number },
+) {
   const jitter = mulberry32(44)
   const canopy = plantTrees(320, 27, 1.2, 1.1, 1.7, 0.95, 1.7, [])
   const saplings = plantTrees(200, 90, 0.85, 1.08, 1.58, 0.48, 0.85, canopy)
-  const trees = [...canopy, ...saplings]
+  const outer = plantTrees(28, 17, 2.6, 1.76, 2.08, 0.38, 0.68, [...canopy, ...saplings], 42, 38)
+  const trees = [...canopy, ...saplings, ...outer]
   if (canopy.length < 20) {
     throw new Error(`Expected at least 20 shore pines, found ${canopy.length}`)
   }
 
   const bark = surfaceMaterial(disposal, atlas.weathered, { roughness: 0.92 })
   const needles = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.94 })
+  swayCrowns(needles, windTime, windAmp)
   const trunkGeo = disposal.geo(new THREE.CylinderGeometry(0.035, 0.12, 0.85, 6))
   trunkGeo.translate(0, 0.42, 0)
 
@@ -159,14 +170,16 @@ function plantTrees(
   minScale: number,
   maxScale: number,
   avoid: TreeSpot[],
+  spanX = 32,
+  spanZ = 28,
 ) {
   const rand = mulberry32(seed)
   const spots: TreeSpot[] = []
   let guard = 0
   while (spots.length < count && guard < 40000) {
     guard += 1
-    const x = (rand() * 2 - 1) * 32
-    const z = (rand() * 2 - 1) * 28
+    const x = (rand() * 2 - 1) * spanX
+    const z = (rand() * 2 - 1) * spanZ
     const radius = lakeRadius(x, z)
     if (radius < minRadius || radius > maxRadius) continue
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
@@ -435,6 +448,65 @@ function rockGeometry(disposal: Disposal, seed: number) {
   }
   geometry.computeVertexNormals()
   return geometry
+}
+
+function swayCrowns(
+  material: THREE.MeshStandardMaterial,
+  windTime: { value: number },
+  windAmp: { value: number },
+) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uWindTime = windTime
+    shader.uniforms.uWindAmp = windAmp
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+         uniform float uWindTime;
+         uniform float uWindAmp;`,
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+         float sway = sin(uWindTime * 0.55 + position.x * 0.35 + position.z * 0.28) * 0.07 * uWindAmp;
+         transformed.x += sway * smoothstep(0.35, 1.6, transformed.y);
+         transformed.z += cos(uWindTime * 0.42 + position.z * 0.22) * 0.04 * uWindAmp * smoothstep(0.4, 1.5, transformed.y);`,
+      )
+  }
+  material.customProgramCacheKey = () => 'pine-sway'
+}
+
+function addReeds(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
+  const rand = mulberry32(52)
+  const reedMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.96 })
+  const stalk = disposal.geo(new THREE.CylinderGeometry(0.012, 0.018, 0.55, 4))
+  stalk.translate(0, 0.28, 0)
+  const spots: Array<{ x: number; z: number; scale: number; yaw: number }> = []
+  let guard = 0
+  while (spots.length < 120 && guard < 8000) {
+    guard += 1
+    const x = (rand() * 2 - 1) * 34
+    const z = (rand() * 2 - 1) * 30
+    const radius = lakeRadius(x, z)
+    if (radius < 0.98 || radius > 1.14) continue
+    if (distanceToPath(x, z) < 0.85) continue
+    if (distanceToRiver(x, z) < 1.2) continue
+    if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 0.35)) continue
+    spots.push({ x, z, scale: 0.75 + rand() * 0.55, yaw: rand() * Math.PI * 2 })
+  }
+  const mesh = new THREE.InstancedMesh(stalk, reedMat, spots.length)
+  mesh.castShadow = false
+  mesh.receiveShadow = true
+  const dummy = new THREE.Object3D()
+  spots.forEach((spot, index) => {
+    const y = Math.max(WATER_Y + 0.02, terrainHeight(spot.x, spot.z))
+    dummy.position.set(spot.x, y, spot.z)
+    dummy.rotation.set(0, spot.yaw, 0)
+    dummy.scale.set(spot.scale, spot.scale * (0.9 + rand() * 0.35), spot.scale)
+    dummy.updateMatrix()
+    mesh.setMatrixAt(index, dummy.matrix)
+  })
+  parent.add(mesh)
 }
 
 function mulberry32(seed: number) {

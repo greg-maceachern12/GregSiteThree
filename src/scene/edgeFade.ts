@@ -4,7 +4,7 @@ import { FOG } from './ground'
 const fogColor = new THREE.Color(FOG)
 
 /** Fade a MeshStandard material toward the page color at the model rim. */
-export function fadeAtRim(material: THREE.MeshStandardMaterial, start = 22, end = 33) {
+export function fadeAtRim(material: THREE.MeshStandardMaterial, start = 28, end = 44) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uRimColor = { value: fogColor }
     shader.uniforms.uRimStart = { value: start }

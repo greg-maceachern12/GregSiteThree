@@ -69,10 +69,10 @@ export function setWaterTime(mesh: THREE.Mesh, time: number) {
 }
 
 export const WATER_COLOR_CHUNK = `#include <color_fragment>
-         vec3 deepWater = vec3(0.07, 0.30, 0.38);
-         vec3 bottom = vec3(0.90, 0.82, 0.62);
-         diffuseColor.rgb = mix(diffuseColor.rgb, deepWater, smoothstep(0.78, 0.2, vShore) * 0.28);
-         diffuseColor.rgb = mix(diffuseColor.rgb, bottom, smoothstep(0.62, 0.96, vShore) * 0.34);
+         vec3 deepWater = vec3(0.12, 0.62, 0.94);
+         vec3 bottom = vec3(0.62, 0.86, 0.97);
+         diffuseColor.rgb = mix(diffuseColor.rgb, deepWater, smoothstep(0.78, 0.2, vShore) * 0.55);
+         diffuseColor.rgb = mix(diffuseColor.rgb, bottom, smoothstep(0.62, 0.96, vShore) * 0.28);
          float foamBand = smoothstep(0.8, 0.95, vShore);
          float foamNoise = texture2D(normalMap, vNormalMapUv * 3.2 + vec2(uTime * 0.12, -uTime * 0.05)).y;
          float foam = foamBand * smoothstep(0.4, 0.78, foamNoise);
@@ -119,7 +119,7 @@ function shadeWater(material: THREE.MeshStandardMaterial) {
          normal = normalize(tbn * mapN);`,
       )
   }
-  material.customProgramCacheKey = () => 'lake-water'
+  material.customProgramCacheKey = () => 'lake-water-azure'
 }
 
 export function buildWatercraft(

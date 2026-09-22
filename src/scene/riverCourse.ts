@@ -6,6 +6,8 @@ export const RIVER_COURSE: Array<[number, number]> = [
   [-6.7, -17.1],
   [-8.4, -19.5],
   [-9.4, -21.4],
+  [-10.3, -24.6],
+  [-10.9, -28.2],
 ]
 
 const LENGTH = RIVER_COURSE.reduce((total, point, index) => {

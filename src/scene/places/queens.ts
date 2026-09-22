@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addRailing, addSash, addStep } from '../parts'
 
 export function buildQueens(
   parent: THREE.Object3D,
@@ -41,8 +41,13 @@ export function buildQueens(
   addGable(group, disposal, roof, width + 0.55, depth + 0.45, top, trim, logs)
   addEaves(group, disposal, metal, width + 0.55, depth + 0.45, top, [1.45, depth / 2 + 0.2])
   addChimney(group, disposal, stone, trim, -1.15, -0.45, 0.3, top + 0.85)
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.42, 0.38, 0.42)), stone, [0, top + 0.42, 0])
+  addMesh(group, disposal.geo(new THREE.ConeGeometry(0.32, 0.28, 4)), roof, [0, top + 0.72, 0])
 
   const face = depth / 2 + 0.14
+  addStep(group, disposal, stone, [0.72, 0.12, face + 0.22], 0.85, 0.28, 0.08)
+  addStep(group, disposal, stone, [0.72, 0.2, face + 0.38], 0.72, 0.24, 0.08)
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.62, 0.1, 0.12)), stone, [0.72, 1.42, face + 0.02])
   addDoor(group, disposal, trim, doorPanel, [0.72, 0.78, face], '+z', 0.52, 1.05)
   addSash(group, disposal, trim, glass, [-0.78, 1.22, face], '+z', 0.46, 0.52)
   const shutter = disposal.geo(new THREE.BoxGeometry(0.16, 0.5, 0.04))
@@ -63,6 +68,7 @@ export function buildQueens(
   const piling = disposal.geo(new THREE.CylinderGeometry(0.05, 0.06, 0.7, 5))
   addMesh(group, piling, wood, [-0.35, dockY - 0.32, 3.2])
   addMesh(group, piling, wood, [0.35, dockY - 0.32, 3.2])
+  addRailing(group, disposal, wood, [-0.35, dockY + 0.04, 2.55], [0.35, dockY + 0.04, 2.55], 0.28)
 
   return {
     label: new THREE.Vector3(x, ground + 3.7, z),

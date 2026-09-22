@@ -5,7 +5,7 @@ const SIZE = 1024
 const LAKE_RX = 17
 const LAKE_RZ = 12.2
 const LAKE_CZ = -0.6
-const TERRAIN = 78
+const TERRAIN = 96
 
 await mkdir('public/textures', { recursive: true })
 await mkdir('public/env', { recursive: true })
@@ -377,9 +377,9 @@ function water() {
       const edge = smoothstep(0.62, 0.98, radius)
       const sand = smoothstep(0.92, 1.04, radius)
       const n = fbm(worldX * 0.55, worldZ * 0.55) * 0.035
-      const deep = [36, 128, 138]
-      const shallow = [168, 214, 204]
-      const shore = [214, 206, 176]
+      const deep = [32, 164, 232]
+      const shallow = [96, 198, 242]
+      const shore = [176, 222, 244]
       let r = mix(deep[0], shallow[0], edge)
       let g = mix(deep[1], shallow[1], edge)
       let b = mix(deep[2], shallow[2], edge)

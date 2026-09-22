@@ -19,6 +19,17 @@ const ROUTES: Array<Array<[number, number]>> = [
     [2.8, 14.15],
     [4.7, 14.55],
   ],
+  [
+    [-1.4, 13.15],
+    [-1.05, 14.35],
+    [-0.45, 15.35],
+    [-1.8, 16.2],
+  ],
+  [
+    [0.5, 12.35],
+    [3.2, 10.85],
+    [7.0, 9.35],
+  ],
 ]
 
 export function distanceToPath(x: number, z: number) {
@@ -62,7 +73,8 @@ export function buildPath(parent: THREE.Object3D, disposal: Disposal, atlas: Atl
   material.customProgramCacheKey = () => 'path-edge'
 
   for (const route of ROUTES) {
-    const mesh = new THREE.Mesh(ribbon(disposal, route, route === ROUTES[0] ? 0.92 : 0.7), material)
+    const width = route === ROUTES[0] ? 0.92 : route === ROUTES[1] ? 0.7 : 0.62
+    const mesh = new THREE.Mesh(ribbon(disposal, route, width), material)
     mesh.receiveShadow = true
     mesh.castShadow = false
     parent.add(mesh)

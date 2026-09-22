@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addChimney, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
 
 const PANES = ['#4aa3e0', '#7dbb42', '#f0c43a', '#e15b4a']
 
@@ -39,6 +39,12 @@ export function buildMicrosoft(
   const depth = 2.65
   addMesh(group, disposal.geo(new THREE.BoxGeometry(width + 0.5, 0.2, depth + 0.4)), stone, [0, 0.12, 0])
   const top = addLogWalls(group, disposal, logs, chink, width, depth, 0.26, 9)
+  const wing = new THREE.Group()
+  wing.position.set(-2.15, 0, 0.05)
+  group.add(wing)
+  addMesh(wing, disposal.geo(new THREE.BoxGeometry(1.55, 0.16, 2.05)), stone, [0, 0.1, 0])
+  const wingTop = addLogWalls(wing, disposal, logs, chink, 1.25, 1.75, 0.26, 6)
+  addGable(wing, disposal, roof, 1.45, 1.95, wingTop, trim, logs)
   addGable(group, disposal, roof, width + 0.6, depth + 0.5, top, trim, logs)
   addEaves(group, disposal, metal, width + 0.6, depth + 0.5, top, [-1.7, -depth / 2 - 0.18])
   addChimney(group, disposal, stone, trim, -1.35, -0.55, 0.28, top + 0.7)
@@ -71,7 +77,11 @@ export function buildMicrosoft(
     ], { cast: false, receive: false })
   })
 
+  const doorPanel = standard(disposal, { color: '#5c4032', roughness: 0.74, metalness: 0.03 })
+  addDoor(group, disposal, trim, doorPanel, [-0.55, 0.78, face], '+z', 0.48, 1.02)
   addSash(group, disposal, trim, glass, [-1.15, 1.25, -face], '-z', 0.42, 0.48)
+  addSash(group, disposal, trim, glass, [1.15, 1.25, -face], '-z', 0.42, 0.48)
+  addSash(wing, disposal, trim, glass, [0.72, 0.95, 0.98], '+z', 0.32, 0.38)
   addMesh(group, disposal.geo(new THREE.BoxGeometry(1.2, 0.1, 0.42)), stone, [0.15, 0.08, face + 0.28])
   addPlanter(group, disposal, wood, leaf, [1.55, 0, face + 0.2])
 
