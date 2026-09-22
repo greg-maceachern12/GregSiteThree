@@ -159,7 +159,7 @@ await fallback.waitForFunction(
   { timeout: 15000 },
 )
 const names = await fallback.$$eval('.fallback button', (nodes) => nodes.map((node) => node.textContent))
-assert(names.includes('Seattle') && names.includes('Audiometa'), names.join(','))
+assert(names.includes('Seattle') && names.includes('Ghola AI') && names.includes('Baselift'), names.join(','))
 const poster = await fallback.$eval('.preview', (node) => getComputedStyle(node).opacity)
 assert(poster === '1', poster)
 await fallback.click('.fallback button')
