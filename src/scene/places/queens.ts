@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addDoor, addEaves, addFlowerBox, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
 
 export function buildQueens(
   parent: THREE.Object3D,
@@ -45,6 +45,7 @@ export function buildQueens(
   const face = depth / 2 + 0.14
   addDoor(group, disposal, trim, doorPanel, [0.72, 0.78, face], '+z', 0.52, 1.05)
   addSash(group, disposal, trim, glass, [-0.78, 1.22, face], '+z', 0.46, 0.52)
+  addFlowerBox(group, disposal, wood, leaf, [-0.78, 0.84, face], '+z', 0.62)
   const shutter = disposal.geo(new THREE.BoxGeometry(0.16, 0.5, 0.04))
   addMesh(group, shutter, wood, [-1.12, 1.22, face], { rotation: [0, 0.18, 0] })
   addMesh(group, shutter, wood, [-0.44, 1.22, face], { rotation: [0, -0.18, 0] })

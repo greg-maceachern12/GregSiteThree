@@ -4,9 +4,11 @@ import type { Atlas } from './assets'
 import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
 import { standard } from './disposal'
-import { FOG, lakeRadius, smoothstep, terrainHeight } from './ground'
+import { FOG, WATER_Y, lakeRadius, smoothstep, terrainHeight } from './ground'
 import { distanceToPath } from './paths'
 import { distanceToRiver } from './riverCourse'
+import { village } from '../content/village'
+import { addWind, birchGeometry, grassGeometry, pineGeometry, trunkGeometry } from './trees'
 
 const CLEARINGS: Array<[number, number, number]> = [
   [-2.4, 13.2, 8.2],
@@ -15,7 +17,8 @@ const CLEARINGS: Array<[number, number, number]> = [
   [-12.6, -13.4, 3.8],
   [11.2, -15.4, 4],
   [-3.2, 17.8, 4.8],
-  [9.05, 11.35, 3.35],
+  [-11.3, 11.4, 3.4],
+  [4.0, -17.2, 5.35],
 ]
 
 const TREE_KEEP: Array<[number, number, number]> = [
@@ -36,11 +39,18 @@ export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: At
     const x = position.getX(i)
     const z = position.getZ(i)
     const radius = lakeRadius(x, z)
-    const sand = smoothstep(0.86, 0.98, radius) * (1 - smoothstep(1.1, 1.36, radius))
-    const creek = smoothstep(2.4, 0.45, distanceToRiver(x, z)) * smoothstep(1.0, 1.14, radius)
-    const dirt = smoothstep(1.35, 0.15, distanceToPath(x, z)) * (1 - Math.max(sand, creek))
-    splat[i * 3] = Math.min(1, sand + creek * 0.85)
+    const height = position.getY(i)
+    const sand = smoothstep(0.9, 0.99, radius) * (1 - smoothstep(1.02, 1.09, radius))
+    const creek = smoothstep(2.2, 0.5, distanceToRiver(x, z)) * smoothstep(1.0, 1.14, radius)
+    const graveyard = Math.hypot((x - 4.0) / 4.8, (z + 17.2) / 3.5)
+    const clearing = 1 - smoothstep(0.9, 1.2, graveyard)
+    const dirt = Math.max(smoothstep(1.35, 0.15, distanceToPath(x, z)), clearing * 0.8) *
+      (1 - Math.max(sand, creek))
+    // Damp, darker band just above the waterline.
+    const wet = (1 - smoothstep(0.02, 0.2, height - WATER_Y)) * Math.max(sand, creek * 0.8)
+    splat[i * 3] = Math.min(1, sand + creek * 0.7)
     splat[i * 3 + 1] = dirt
+    splat[i * 3 + 2] = wet
   }
   geometry.setAttribute('color', new THREE.BufferAttribute(splat, 3))
   geometry.computeVertexNormals()
@@ -50,10 +60,12 @@ export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: At
   const mesh = new THREE.Mesh(geometry, material)
   mesh.receiveShadow = true
   parent.add(mesh)
-  addPines(parent, disposal, atlas)
+  const trees = addPines(parent, disposal, atlas)
+  const specialTree = addBirches(parent, disposal, trees)
+  addGrass(parent, disposal)
   addGroundCover(parent, disposal, atlas)
   addRocks(parent, disposal, atlas)
-  return mesh
+  return { mesh, specialTree }
 }
 
 const fogColor = new THREE.Color(FOG)
@@ -90,9 +102,19 @@ function shadeGround(material: THREE.MeshStandardMaterial) {
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
-         vec3 sandColor = vec3(0.92, 0.84, 0.64);
+         vec3 sandColor = vec3(0.72, 0.63, 0.47);
+         vec3 wetColor = vec3(0.44, 0.39, 0.31);
          vec3 dirtColor = vec3(0.48, 0.38, 0.26);
-         diffuseColor.rgb = mix(diffuseColor.rgb, sandColor, vSplat.r * 0.94);
+         float grain = 0.9 + diffuseColor.g * 0.25;
+         // Broad patches of lusher and drier turf so the lawns aren't one flat green.
+         vec2 cell = vRimWorld.xz * 0.23;
+         float patchy = sin(cell.x * 1.7 + sin(cell.y * 1.3)) * sin(cell.y * 1.9 + sin(cell.x * 0.8));
+         float fine = sin(vRimWorld.x * 2.9 + vRimWorld.z * 1.7) * sin(vRimWorld.z * 3.3 - vRimWorld.x * 1.1);
+         vec3 lush = diffuseColor.rgb * vec3(0.72, 0.86, 0.64);
+         vec3 dry = diffuseColor.rgb * vec3(1.02, 0.96, 0.7);
+         diffuseColor.rgb = mix(lush, dry, smoothstep(-0.6, 0.8, patchy) * 0.8) * (0.94 + fine * 0.06);
+         diffuseColor.rgb = mix(diffuseColor.rgb, sandColor * grain, vSplat.r * 0.92);
+         diffuseColor.rgb = mix(diffuseColor.rgb, wetColor * grain, vSplat.b * 0.8);
          diffuseColor.rgb = mix(diffuseColor.rgb, dirtColor, vSplat.g * 0.55);`,
       )
       .replace(
@@ -119,21 +141,29 @@ type TreeSpot = {
 
 function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
   const jitter = mulberry32(44)
-  const canopy = plantTrees(320, 27, 1.2, 1.1, 1.7, 0.95, 1.7, [])
+  const canopy = [
+    ...plantTrees(320, 27, 1.2, 1.1, 1.7, 0.95, 1.7, []),
+    ...[
+      [-1.6, -16.0, 1.25], [-1.5, -19.1, 1.45], [-0.3, -22.0, 1.2],
+      [9.5, -16.1, 1.3], [9.6, -19.2, 1.45], [8.5, -22.0, 1.15],
+    ].map(([x, z, scale], index): TreeSpot => ({
+      x, z, scale, yaw: index * 1.37, leaf: false, variant: index % 3,
+      sx: scale, sy: scale * 1.08, sz: scale,
+    })),
+  ]
   const saplings = plantTrees(200, 90, 0.85, 1.08, 1.58, 0.48, 0.85, canopy)
   const trees = [...canopy, ...saplings]
   if (canopy.length < 20) {
     throw new Error(`Expected at least 20 shore pines, found ${canopy.length}`)
   }
 
-  const bark = surfaceMaterial(disposal, atlas.weathered, { roughness: 0.92 })
-  const needles = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.94 })
-  const trunkGeo = disposal.geo(new THREE.CylinderGeometry(0.035, 0.12, 0.85, 6))
-  trunkGeo.translate(0, 0.42, 0)
+  const bark = surfaceMaterial(disposal, atlas.darkWood, { color: '#8a6a52', roughness: 0.92 })
+  const needles = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.86, metalness: 0 })
+  addWind(needles, 0.006, 'pine')
 
-  placeInstances(parent, trunkGeo, bark, trees, true, (color) => {
-    const warm = 0.55 + jitter() * 0.3
-    color.setRGB(warm * 0.72, warm * 0.58, warm * 0.42)
+  placeInstances(parent, trunkGeometry(disposal, 0.95, 0.12), bark, trees, true, (color) => {
+    const warm = 0.75 + jitter() * 0.3
+    color.setRGB(warm, warm * 0.92, warm * 0.84)
   })
   for (let variant = 0; variant < 4; variant++) {
     placeInstances(
@@ -143,11 +173,96 @@ function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
       trees.filter((tree) => tree.variant === variant),
       true,
       (color) => {
-        const shade = 0.58 + jitter() * 0.34
-        color.setRGB(shade * 0.72, shade, shade * 0.62)
+        const k = 0.8 + jitter() * 0.24
+        const hue = jitter()
+        color.setRGB(k * (0.88 + hue * 0.22), k, k * (0.84 + (1 - hue) * 0.26))
       },
     )
   }
+  return trees
+}
+
+function addBirches(parent: THREE.Object3D, disposal: Disposal, pines: TreeSpot[]) {
+  const birches = plantTrees(48, 131, 1.3, 1.1, 1.48, 0.8, 1.15, pines)
+  const selected = birches.reduce((best, tree) =>
+    Math.hypot(tree.x - 1.5, tree.z - 15.6) < Math.hypot(best.x - 1.5, best.z - 15.6) ? tree : best)
+  const parts: Array<{ mesh: THREE.InstancedMesh; index: number }> = []
+  const leaves = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.82, metalness: 0 })
+  addWind(leaves, 0.012, 'birch')
+  const bark = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.7, metalness: 0 })
+  const tint = mulberry32(12)
+  for (let variant = 0; variant < 3; variant++) {
+    const { crown, trunk } = birchGeometry(disposal, 300 + variant * 17)
+    const group = birches.filter((_, index) => index % 3 === variant)
+    const trunkMesh = placeInstances(parent, trunk, bark, group, true, (color) => color.setRGB(1, 1, 1))
+    const crownMesh = placeInstances(parent, crown, leaves, group, true, (color) => {
+      const k = 0.85 + tint() * 0.3
+      color.setRGB(k * (0.95 + tint() * 0.12), k, k * 0.9)
+    })
+    if (group.includes(selected)) {
+      const index = group.indexOf(selected)
+      if (trunkMesh) parts.push({ mesh: trunkMesh, index })
+      if (crownMesh) parts.push({ mesh: crownMesh, index })
+    }
+  }
+  const dummy = new THREE.Object3D()
+  let lastSway = NaN
+  return {
+    position: new THREE.Vector3(selected.x, terrainHeight(selected.x, selected.z) + selected.sy, selected.z),
+    sway(amount: number) {
+      if (Math.abs(amount - lastSway) < 0.0001) return
+      lastSway = amount
+      dummy.position.set(selected.x, terrainHeight(selected.x, selected.z), selected.z)
+      dummy.rotation.set(amount, selected.yaw, amount * 0.7)
+      dummy.scale.set(selected.sx, selected.sy, selected.sz)
+      dummy.updateMatrix()
+      for (const { mesh, index } of parts) {
+        mesh.setMatrixAt(index, dummy.matrix)
+        mesh.instanceMatrix.needsUpdate = true
+      }
+    },
+  }
+}
+
+/** Footprints where a building, deck, or stage sits, so grass doesn't poke through floors. */
+const BUILT: Array<[number, number, number, number]> = [
+  [-6.1, 1.3, 8.9, 15.8],
+  [0.3, 7.7, -19.6, -14.8],
+  [2.4, 7.4, 13.1, 16.0],
+  [12.2, 16.6, 7.4, 11.4],
+  [-14.6, -10.6, -15.2, -11.0],
+  [9.0, 13.4, -17.2, -13.4],
+  [0.7, 2.3, -14.6, -11.6],
+]
+
+function addGrass(parent: THREE.Object3D, disposal: Disposal) {
+  const rand = mulberry32(2024)
+  const spots: TreeSpot[] = []
+  let guard = 0
+  while (spots.length < 6500 && guard < 60000) {
+    guard += 1
+    const x = (rand() * 2 - 1) * 24
+    const z = (rand() * 2 - 1) * 22
+    if (Math.hypot(x, z) > 24) continue
+    const radius = lakeRadius(x, z)
+    if (radius < 1.045 + rand() * 0.04) continue
+    if (BUILT.some(([x0, x1, z0, z1]) => x > x0 && x < x1 && z > z0 && z < z1)) continue
+    if (Math.hypot((x - 4.0) / 4.8, (z + 17.2) / 3.5) < 1.15) continue
+    if (village.some(({ position: [cx, cz] }) => Math.hypot(x - cx, z - cz) < 0.75)) continue
+    if (distanceToPath(x, z) < 0.55) continue
+    if (distanceToRiver(x, z) < 1.5) continue
+    const scale = 0.7 + rand() * 0.7
+    spots.push({ x, z, scale, yaw: rand() * Math.PI * 2, leaf: false, variant: 0, sx: scale, sy: scale * (0.8 + rand() * 0.5), sz: scale })
+  }
+  const material = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.92, metalness: 0 })
+  material.side = THREE.DoubleSide
+  addWind(material, 0.5, 'grass')
+  const tint = mulberry32(77)
+  placeInstances(parent, grassGeometry(disposal), material, spots, false, (color) => {
+    const k = 0.8 + tint() * 0.35
+    const dry = tint()
+    color.setRGB(k * (0.9 + dry * 0.25), k, k * (0.85 - dry * 0.15))
+  })
 }
 
 function plantTrees(
@@ -196,14 +311,10 @@ function addGroundCover(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas
   const grassMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.95 })
   const shrubMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.88 })
   const petal = standard(disposal, { color: '#ffffff', roughness: 0.7, metalness: 0.02 })
-  const grass = scatter(86, 19, 1.08, 1.7, 0.85, 0.72)
   const shrubs = scatter(26, 63, 1.16, 1.62, 1.7, 0.95)
   const flowers = scatter(34, 11, 1.04, 1.3, 0.85, 1)
   const tint = mulberry32(8)
 
-  placeInstances(parent, tuftGeometry(disposal), grassMat, grass, false, (color) => {
-    color.setRGB(0.62 + tint() * 0.3, 0.78 + tint() * 0.2, 0.48 + tint() * 0.16)
-  })
   placeInstances(parent, shrubGeometry(disposal), shrubMat, shrubs, true, (color) => {
     color.setRGB(0.7 + tint() * 0.25, 0.82 + tint() * 0.16, 0.52 + tint() * 0.14)
   })
@@ -228,7 +339,7 @@ function scatter(count: number, seed: number, minRadius: number, maxRadius: numb
     const radius = lakeRadius(x, z)
     if (radius < minRadius || radius > maxRadius) continue
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach * keep)) continue
-    if (x > -5.1 && x < 0.45 && z > 15.4 && z < 19.65) continue
+    if (x > 0.2 && x < 7.8 && z > -19.7 && z < -14.7) continue
     if (ROCK_KEEP.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
     if (distanceToPath(x, z) < 1.05) continue
     if (distanceToRiver(x, z) < 1.45) continue
@@ -257,7 +368,7 @@ function placeInstances(
   shadows: boolean,
   tint: (color: THREE.Color, index: number) => void,
 ) {
-  if (items.length === 0) return
+  if (items.length === 0) return undefined
   const mesh = new THREE.InstancedMesh(geometry, material, items.length)
   mesh.castShadow = shadows
   mesh.receiveShadow = true
@@ -274,6 +385,7 @@ function placeInstances(
     mesh.setColorAt(index, color)
   })
   parent.add(mesh)
+  return mesh
 }
 
 function merged(disposal: Disposal, parts: THREE.BufferGeometry[]) {
@@ -281,63 +393,6 @@ function merged(disposal: Disposal, parts: THREE.BufferGeometry[]) {
   if (!geometry) throw new Error('Unable to merge plant geometry')
   geometry.computeVertexNormals()
   return disposal.geo(geometry)
-}
-
-const PINE_TIERS: Array<Array<{ r: number; h: number; y: number; arms: number }>> = [
-  [
-    { r: 0.92, h: 0.78, y: 1.08, arms: 7 },
-    { r: 0.72, h: 0.68, y: 1.5, arms: 6 },
-    { r: 0.5, h: 0.58, y: 1.9, arms: 0 },
-    { r: 0.32, h: 0.5, y: 2.26, arms: 0 },
-    { r: 0.14, h: 0.4, y: 2.58, arms: 0 },
-  ],
-  [
-    { r: 0.58, h: 0.52, y: 0.98, arms: 6 },
-    { r: 0.48, h: 0.48, y: 1.3, arms: 0 },
-    { r: 0.38, h: 0.44, y: 1.6, arms: 5 },
-    { r: 0.28, h: 0.4, y: 1.88, arms: 0 },
-    { r: 0.18, h: 0.36, y: 2.14, arms: 0 },
-    { r: 0.08, h: 0.3, y: 2.38, arms: 0 },
-  ],
-  [
-    { r: 1.08, h: 0.72, y: 0.98, arms: 8 },
-    { r: 0.8, h: 0.62, y: 1.38, arms: 6 },
-    { r: 0.5, h: 0.54, y: 1.74, arms: 0 },
-    { r: 0.22, h: 0.46, y: 2.08, arms: 0 },
-  ],
-  [
-    { r: 0.46, h: 0.52, y: 0.78, arms: 5 },
-    { r: 0.28, h: 0.44, y: 1.1, arms: 0 },
-    { r: 0.12, h: 0.34, y: 1.36, arms: 0 },
-  ],
-]
-
-function pineGeometry(disposal: Disposal, variant: number) {
-  const parts: THREE.BufferGeometry[] = []
-  for (const tier of PINE_TIERS[variant]) {
-    const skirt = new THREE.ConeGeometry(tier.r, tier.h, 8)
-    skirt.translate(0, tier.y, 0)
-    parts.push(skirt)
-    for (let arm = 0; arm < tier.arms; arm++) {
-      const branch = new THREE.ConeGeometry(tier.r * 0.2, tier.r * 0.9, 4)
-      branch.translate(0, tier.r * 0.42, 0)
-      branch.rotateX(1.12)
-      branch.rotateY((arm / tier.arms) * Math.PI * 2 + tier.y)
-      branch.translate(0, tier.y - tier.h * 0.22, 0)
-      parts.push(branch)
-    }
-  }
-  return merged(disposal, parts)
-}
-
-function tuftGeometry(disposal: Disposal) {
-  const parts = [0, 1, 2].map((i) => {
-    const blade = new THREE.ConeGeometry(0.11, 0.52, 4)
-    blade.translate((i - 1) * 0.1, 0.26, i === 1 ? 0.06 : -0.03)
-    blade.rotateZ((i - 1) * 0.2)
-    return blade
-  })
-  return merged(disposal, parts)
 }
 
 function shrubGeometry(disposal: Disposal) {
@@ -369,7 +424,7 @@ const ROCK_KEEP: Array<[number, number, number]> = [
   [1.5, -11.6, 2.2],
   [11.2, -15.4, 2.6],
   [-0.6, 16.2, 1.3],
-  [9.05, 11.35, 2.8],
+  [-11.3, 11.4, 2.9],
 ]
 
 function addRocks(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {

@@ -6,34 +6,26 @@ import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
 import { addMesh } from '../parts'
 
-const LEFT = -4.7
-const RIGHT = 0.28
-const FRONT = 15.9
-const NOTCH = 16.4
-const BACK = 18.5
-const NOTCH_L = -3.22
-const NOTCH_R = -1.62
-const GATE_X = -0.12
+const LEFT = 0.4
+const RIGHT = 7.6
+const FRONT = -14.9
+const BACK = -19.5
+const GATE_X = 4.0
 const GATE_HALF = 0.42
 
-/** House steps occupy the middle of the near edge, so the fence steps back around them. */
 const LOOP: Array<[number, number]> = [
   [LEFT, FRONT],
-  [NOTCH_L, FRONT],
-  [NOTCH_L, NOTCH],
-  [NOTCH_R, NOTCH],
-  [NOTCH_R, FRONT],
   [RIGHT, FRONT],
   [RIGHT, BACK],
   [LEFT, BACK],
 ]
 
 const BLOOMS: Array<[number, number, string]> = [
-  [-4.4, 17.6, '#e7b7c4'],
-  [-2.15, 17.7, '#f0e2b0'],
-  [-3.35, 17.95, '#f4efe6'],
-  [-0.85, 17.85, '#e7b7c4'],
-  [0.02, 17.7, '#f0e2b0'],
+  [0.85, -17.5, '#e7b7c4'],
+  [2.65, -19.1, '#f0e2b0'],
+  [4.0, -19.1, '#f4efe6'],
+  [5.55, -19.0, '#e7b7c4'],
+  [7.1, -17.45, '#f0e2b0'],
 ]
 
 export function buildStone(
@@ -90,8 +82,8 @@ export function buildGraveyard(parent: THREE.Object3D, disposal: Disposal, atlas
 
   const bush = disposal.geo(new THREE.IcosahedronGeometry(0.34, 0))
   for (const [x, z, scale] of [
-    [-4.42, 18.28, 1],
-    [0.05, 18.15, 0.9],
+    [0.8, -19.05, 1],
+    [7.2, -19.0, 0.9],
   ] as const) {
     addMesh(parent, bush, leaf, [x, terrainHeight(x, z) + 0.18 * scale, z]).scale.set(scale, scale * 0.72, scale)
   }
@@ -99,14 +91,10 @@ export function buildGraveyard(parent: THREE.Object3D, disposal: Disposal, atlas
 
 function addPlot(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
   const gravel: Array<[number, number]> = [
-    [LEFT + 0.22, FRONT + 0.2],
-    [NOTCH_L - 0.16, FRONT + 0.2],
-    [NOTCH_L - 0.16, NOTCH + 0.16],
-    [NOTCH_R + 0.16, NOTCH + 0.16],
-    [NOTCH_R + 0.16, FRONT + 0.2],
-    [RIGHT - 0.22, FRONT + 0.2],
-    [RIGHT - 0.22, BACK - 0.22],
-    [LEFT + 0.22, BACK - 0.22],
+    [LEFT + 0.22, FRONT - 0.22],
+    [RIGHT - 0.22, FRONT - 0.22],
+    [RIGHT - 0.22, BACK + 0.22],
+    [LEFT + 0.22, BACK + 0.22],
   ]
   let minX = Infinity
   let maxX = -Infinity
@@ -267,8 +255,8 @@ function addGate(parent: THREE.Object3D, disposal: Disposal, iron: THREE.Materia
 }
 
 function addBench(parent: THREE.Object3D, disposal: Disposal, wood: THREE.Material) {
-  const x = -0.35
-  const z = 18.12
+  const x = 6.7
+  const z = -18.9
   const y = terrainHeight(x, z)
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.95, 0.07, 0.34)), wood, [x, y + 0.42, z])
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.95, 0.32, 0.06)), wood, [x, y + 0.6, z - 0.14])
@@ -278,8 +266,8 @@ function addBench(parent: THREE.Object3D, disposal: Disposal, wood: THREE.Materi
 }
 
 function addLantern(parent: THREE.Object3D, disposal: Disposal, iron: THREE.Material, warm: THREE.Material) {
-  const x = -4.35
-  const z = 18.05
+  const x = 0.9
+  const z = -18.9
   const y = terrainHeight(x, z)
   addMesh(parent, disposal.geo(new THREE.CylinderGeometry(0.045, 0.05, 1.05, 6)), iron, [x, y + 0.52, z])
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.22, 0.26, 0.22)), warm, [x, y + 1.12, z], { cast: false })

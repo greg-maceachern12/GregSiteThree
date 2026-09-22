@@ -167,6 +167,39 @@ a {
   display: none !important;
 }
 
+.scene-secret {
+  position: absolute;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.scene-secret:focus-visible {
+  opacity: 1;
+  outline: 2px solid #5d736e;
+  outline-offset: 2px;
+  background: rgba(255, 250, 240, 0.35);
+}
+
+.scene-secret[hidden] { display: none; }
+
+.scene-flash {
+  position: absolute;
+  z-index: 5;
+  color: #f6eed8;
+  font-size: 24px;
+  text-shadow: 0 1px 6px #756d58;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
 .page[data-scene-status='loading'] .anchor,
 .page[data-scene-status='failed'] .anchor {
   visibility: hidden;

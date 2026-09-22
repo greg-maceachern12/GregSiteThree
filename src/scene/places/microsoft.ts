@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addChimney, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addEaves, addFlowerBox, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
 
 const PANES = ['#4aa3e0', '#7dbb42', '#f0c43a', '#e15b4a']
 
@@ -53,6 +53,7 @@ export function buildMicrosoft(
   addMesh(group, disposal.geo(new THREE.BoxGeometry(0.06, 0.98, 0.05)), trim, [0.15, 1.1, face + 0.02])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(0.98, 0.06, 0.05)), trim, [0.15, 1.1, face + 0.02])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(1.22, 0.07, 0.12)), wood, [0.15, 0.48, face + 0.04])
+  addFlowerBox(group, disposal, wood, leaf, [0.15, 0.36, face], '+z', 1.12)
 
   PANES.forEach((color, index) => {
     const pane = standard(disposal, {

@@ -46,8 +46,9 @@ export function riverBed(along: number) {
   return 0.04 - along * 0.34
 }
 
+/** Level with the lake through the mouth, then stepping down toward the rim. */
 export function riverSurface(along: number) {
-  return 0.16 - along * 0.34
+  return 0.144 - smooth(0.2, 1, along) * 0.3
 }
 
 function smooth(edge0: number, edge1: number, value: number) {
@@ -57,8 +58,12 @@ function smooth(edge0: number, edge1: number, value: number) {
 
 export function carveRiver(height: number, x: number, z: number, radius: number) {
   const river = nearestOnRiver(x, z)
-  if (river.distance > 2.6 || radius < 0.96) return height
-  const blend = smooth(2.6, 0.6, river.distance) * smooth(0.96, 1.08, radius)
+  if (river.distance > 3.2 || radius < 0.96) return height
+  // Banks swell and pinch along the course so the channel doesn't read as a ruler line.
+  const wobble =
+    0.28 * Math.sin(river.along * 29) + 0.16 * Math.sin(river.along * 71 + 0.6) + 0.2 * Math.sin(x * 1.3 + z * 0.7)
+  const distance = Math.max(0, river.distance - wobble * smooth(0.02, 0.2, river.along))
+  const blend = smooth(2.6, 0.6, distance) * smooth(0.96, 1.08, radius)
   const bed = riverBed(river.along)
   return height + (Math.min(height, bed) - height) * blend
 }

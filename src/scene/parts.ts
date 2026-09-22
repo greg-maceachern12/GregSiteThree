@@ -80,6 +80,18 @@ export function addGable(
     }
   }
 
+  // Ridge cap and exposed rafter tails under both eaves.
+  const cap = disposal.geo(new THREE.BoxGeometry(width + 0.1, 0.06, 0.26))
+  addMesh(parent, cap, trim, [0, baseY + rise + 0.07, 0])
+  const tail = disposal.geo(new THREE.BoxGeometry(0.05, 0.07, 0.24))
+  const tails = Math.max(3, Math.round(width / 0.42))
+  for (let i = 0; i <= tails; i++) {
+    const tx = -width / 2 + 0.12 + (i / tails) * (width - 0.24)
+    for (const sign of [1, -1]) {
+      addMesh(parent, tail, ends, [tx, baseY - 0.07, sign * (run - 0.14)], { rotation: [sign * angle, 0, 0] })
+    }
+  }
+
   const gable = gableGeometry(disposal, run - 0.16, rise - 0.04)
   addMesh(parent, gable, ends, [width / 2 - 0.08, baseY, 0], { cast: false, receive: false })
   addMesh(parent, gable, ends, [-width / 2 + 0.08, baseY, 0], {
@@ -226,7 +238,7 @@ export function addPlanter(
   ])
 }
 
-/** Stacked logs with alternating corner notches and a pale chink line. Returns the wall top. */
+/** Stacked round logs with alternating corner overhangs and a pale chink line. Returns the wall top. */
 export function addLogWalls(
   parent: THREE.Object3D,
   disposal: Disposal,
@@ -238,34 +250,48 @@ export function addLogWalls(
   courses = 8,
 ) {
   const logH = 0.2
-  const thick = 0.16
-  const along = disposal.geo(new THREE.BoxGeometry(1, logH * 0.72, thick))
-  const across = disposal.geo(new THREE.BoxGeometry(thick, logH * 0.72, 1))
-  const chinkAlong = disposal.geo(new THREE.BoxGeometry(1, 0.035, thick * 0.5))
-  const chinkAcross = disposal.geo(new THREE.BoxGeometry(thick * 0.5, 0.035, 1))
+  const radius = logH * 0.5
+  const along = disposal.geo(new THREE.CylinderGeometry(radius, radius, 1, 10))
+  along.rotateZ(Math.PI / 2)
+  const across = disposal.geo(new THREE.CylinderGeometry(radius, radius, 1, 10))
+  across.rotateX(Math.PI / 2)
+  const endCap = disposal.geo(new THREE.CircleGeometry(radius * 0.8, 10))
+  const endGrain = disposal.mat(new THREE.MeshStandardMaterial({ color: '#c4a27a', roughness: 0.92, metalness: 0.02 }))
+  const chinkAlong = disposal.geo(new THREE.BoxGeometry(1, 0.035, radius * 1.1))
+  const chinkAcross = disposal.geo(new THREE.BoxGeometry(radius * 1.1, 0.035, 1))
+  const overhang = 0.42
   for (let i = 0; i < courses; i++) {
     const y = baseY + logH * (i + 0.5)
     const longOver = i % 2 === 0
-    const spanX = width + (longOver ? 0.3 : 0)
-    const spanZ = depth + (longOver ? 0 : 0.3)
-    const front = addMesh(parent, along, logs, [0, y, depth / 2])
-    const back = addMesh(parent, along, logs, [0, y, -depth / 2])
-    front.scale.x = spanX
-    back.scale.x = spanX
-    const left = addMesh(parent, across, logs, [-width / 2, y, 0])
-    const right = addMesh(parent, across, logs, [width / 2, y, 0])
-    left.scale.z = spanZ
-    right.scale.z = spanZ
+    // Every course runs past the corner; alternating courses sit a half-log higher in reality,
+    // which is suggested here by staggering which pair sticks out further.
+    const spanX = width + (longOver ? overhang : overhang * 0.55)
+    const spanZ = depth + (longOver ? overhang * 0.55 : overhang)
+    const jitter = ((i * 37) % 7) * 0.012
+    for (const side of [1, -1]) {
+      const run = addMesh(parent, along, logs, [0, y, (side * depth) / 2])
+      run.scale.x = spanX + jitter
+      const cross = addMesh(parent, across, logs, [(side * width) / 2, y, 0])
+      cross.scale.z = spanZ - jitter
+      for (const end of [1, -1]) {
+        addMesh(parent, endCap, endGrain, [(end * (spanX + jitter)) / 2 + end * 0.001, y, (side * depth) / 2], {
+          cast: false,
+          rotation: [0, (end * Math.PI) / 2, 0],
+        })
+        addMesh(parent, endCap, endGrain, [(side * width) / 2, y, (end * (spanZ - jitter)) / 2 + end * 0.001], {
+          cast: false,
+          rotation: [0, end > 0 ? 0 : Math.PI, 0],
+        })
+      }
+    }
     if (i === 0) continue
     const cy = y - logH * 0.5
-    const cf = addMesh(parent, chinkAlong, chink, [0, cy, depth / 2 + 0.02], { cast: false })
-    const cb = addMesh(parent, chinkAlong, chink, [0, cy, -depth / 2 - 0.02], { cast: false })
-    cf.scale.x = width * 0.92
-    cb.scale.x = width * 0.92
-    const cl = addMesh(parent, chinkAcross, chink, [-width / 2 - 0.02, cy, 0], { cast: false })
-    const cr = addMesh(parent, chinkAcross, chink, [width / 2 + 0.02, cy, 0], { cast: false })
-    cl.scale.z = depth * 0.92
-    cr.scale.z = depth * 0.92
+    for (const side of [1, -1]) {
+      const cf = addMesh(parent, chinkAlong, chink, [0, cy, (side * depth) / 2], { cast: false })
+      cf.scale.x = width * 0.96
+      const cl = addMesh(parent, chinkAcross, chink, [(side * width) / 2, cy, 0], { cast: false })
+      cl.scale.z = depth * 0.96
+    }
   }
   return baseY + courses * logH
 }
@@ -306,4 +332,42 @@ export function addCornerBoards(
   ] as const) {
     addMesh(parent, board, trim, [x, y, z])
   }
+}
+
+/** A painted window box with a row of blooms, hung just under a sash. */
+export function addFlowerBox(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  box: THREE.Material,
+  leaf: THREE.Material,
+  position: [number, number, number],
+  face: Face,
+  width = 0.6,
+) {
+  const group = new THREE.Group()
+  group.position.set(position[0], position[1], position[2])
+  group.rotation.y = FACE_YAW[face]
+  parent.add(group)
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(width, 0.14, 0.16)), box, [0, 0, 0.08])
+  const bud = disposal.geo(new THREE.IcosahedronGeometry(0.075, 0))
+  const colors = ['#e7a0b4', '#f2d27a', '#f4efe6', '#d86a58']
+  const count = Math.max(3, Math.round(width / 0.13))
+  for (let i = 0; i < count; i++) {
+    const bx = -width / 2 + 0.07 + (i / (count - 1)) * (width - 0.14)
+    const foliage = addMesh(group, bud, leaf, [bx, 0.09, 0.08], { cast: false })
+    foliage.scale.set(1, 0.8, 0.9)
+    if (i % 2 === 0) continue
+    const bloom = BLOOM_CACHE.get(disposal)?.[i % colors.length] ?? bloomMaterials(disposal, colors)[i % colors.length]
+    addMesh(group, disposal.geo(new THREE.SphereGeometry(0.035, 6, 4)), bloom, [bx, 0.16, 0.12], { cast: false })
+  }
+}
+
+const BLOOM_CACHE = new WeakMap<Disposal, THREE.Material[]>()
+
+function bloomMaterials(disposal: Disposal, colors: string[]) {
+  const materials = colors.map((color) =>
+    disposal.mat(new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.02 })),
+  )
+  BLOOM_CACHE.set(disposal, materials)
+  return materials
 }

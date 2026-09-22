@@ -139,6 +139,8 @@ export function buildSeattle(
   return {
     label: new THREE.Vector3(x, WATER_Y + 3.7, z),
     focus: new THREE.Vector3(x, WATER_Y + 1.35, z),
+    boat,
+    flag,
   }
 }
 

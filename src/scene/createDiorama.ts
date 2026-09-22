@@ -1,20 +1,21 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js'
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { buildAnimals } from './animals'
 import { placeCard, projectAnchors, type ProjectedAnchor } from './anchors'
 import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
+import { createEasterEggs, type SecretTarget } from './easterEggs'
 import { FOG } from './ground'
 import { buildLake, buildWatercraft, setWaterTime } from './lake'
 import { buildRiver } from './river'
 import { buildPath } from './paths'
+import { WaterReflection } from './reflection'
 import { buildGraveyard, buildStone } from './places/graveyard'
 import { buildCottage, buildVillageGreen } from './places/village'
 import { buildHouse } from './places/house'
@@ -24,6 +25,7 @@ import { buildRange } from './places/range'
 import { buildSeattle } from './places/seattle'
 import { buildStage } from './places/stage'
 import { buildShore } from './shore'
+import { windUniforms } from './trees'
 
 export type AnchorInput = {
   id: string
@@ -90,10 +92,13 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 140)
   camera.position.copy(HOME_POS)
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  let mobile = window.matchMedia('(max-width: 700px)').matches
+  let quality: 'balanced' | 'low' = 'balanced'
+  const pixelRatio = () => Math.min(window.devicePixelRatio, quality === 'low' ? 1 : mobile ? 1.25 : 1.5)
+  renderer.setPixelRatio(pixelRatio())
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.04
+  renderer.toneMappingExposure = 0.92
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   renderer.setClearColor(FOG, 1)
@@ -121,7 +126,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     return inert()
   }
   scene.environment = atlas.environment
-  scene.environmentIntensity = 1.05
+  scene.environmentIntensity = 0.82
 
   let icons = new Map<string, THREE.Texture>()
   try {
@@ -133,18 +138,19 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     return inert()
   }
 
-  const hemi = new THREE.HemisphereLight('#f4efe6', '#6d8c98', 0.32)
+  const hemi = new THREE.HemisphereLight('#dfe9f2', '#5f6f45', 0.3)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight('#ffc48a', 2.45)
-  sun.position.set(-18, 16, 6)
+  // Late-afternoon sun, low enough to throw long, readable shadows across the lawns.
+  const sun = new THREE.DirectionalLight('#ffcf9a', 3.1)
+  sun.position.set(-20, 13, 9)
   sun.target.position.set(0.4, 0.6, 3.2)
   scene.add(sun.target)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.radius = 6
-  sun.shadow.bias = -0.00015
-  sun.shadow.normalBias = 0.02
-  sun.shadow.intensity = 0.7
+  sun.shadow.radius = 3
+  sun.shadow.bias = -0.0002
+  sun.shadow.normalBias = 0.025
+  sun.shadow.intensity = 0.82
   sun.shadow.camera.near = 2
   sun.shadow.camera.far = 70
   sun.shadow.camera.left = -32
@@ -153,11 +159,11 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   sun.shadow.camera.bottom = -32
   sun.shadow.camera.updateProjectionMatrix()
   scene.add(sun)
-  const fill = new THREE.DirectionalLight('#c5d7e4', 0.08)
+  const fill = new THREE.DirectionalLight('#b9cfe6', 0.35)
   fill.position.set(16, 8, -10)
   scene.add(fill)
 
-  buildShore(scene, disposal, atlas)
+  const shore = buildShore(scene, disposal, atlas)
   const water = buildLake(scene, disposal, atlas)
   const river = buildRiver(scene, disposal, atlas)
   buildPath(scene, disposal, atlas)
@@ -166,6 +172,11 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   const bobbers: { object: THREE.Object3D; base: number; phase: number; amplitude: number }[] = []
   const bob = (object: THREE.Object3D, amplitude = 0.04) => {
     bobbers.push({ object, base: object.position.y, phase: bobbers.length * 1.17, amplitude })
+  }
+  const animators: Array<(time: number) => void> = []
+  const secretTargets: SecretTarget[] = []
+  const animate = (update: (time: number) => void) => {
+    animators.push(update)
   }
 
   for (const anchor of options.anchors) {
@@ -185,7 +196,11 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
         place = buildQueens(scene, disposal, atlas, x, z)
         break
       case 'seattle':
-        place = buildSeattle(scene, disposal, atlas, x, z, bob)
+        {
+          const sailboat = buildSeattle(scene, disposal, atlas, x, z, bob)
+          place = sailboat
+          secretTargets.push({ id: 'sailboat', label: 'Rock the sailboat', object: sailboat.boat, kind: 'boat', part: sailboat.flag })
+        }
         break
       case 'microsoft':
         place = buildMicrosoft(scene, disposal, atlas, x, z)
@@ -211,24 +226,40 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
   buildGraveyard(scene, disposal, atlas)
   buildVillageGreen(scene, disposal, atlas)
-  buildWatercraft(scene, disposal, atlas, bob)
-  buildAnimals(scene, disposal, bob)
+  buildWatercraft(scene, disposal, atlas, bob, animate)
+  secretTargets.push(...buildAnimals(scene, disposal, bob))
 
-  const composer = new EffectComposer(renderer)
+  const reflectionHidden: THREE.Object3D[] = [water, river]
+  const reflection = new WaterReflection(reflectionHidden)
+
+  // Multisampled HDR target: crisp edges without a post-AA smear.
+  const composerTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 2 })
+  const composer = new EffectComposer(renderer, composerTarget)
   composer.addPass(new RenderPass(scene, camera))
-  const ssao = new SSAOPass(scene, camera, 512, 512, 16)
-  ssao.kernelRadius = 0.85
-  ssao.minDistance = 0.015
-  ssao.maxDistance = 0.4
-  composer.addPass(ssao)
-  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.26, 0.4, 1.08)
+  const gtao = new GTAOPass(scene, camera, 512, 512)
+  gtao.blendIntensity = 0.85
+  gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1, samples: 8 })
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 8 })
+  composer.addPass(gtao)
+  // Glass, ripples and the stream are see-through; keep them out of the occlusion buffer.
+  const seeThrough: THREE.Object3D[] = []
+  scene.traverse((object) => {
+    const material = (object as THREE.Mesh).material
+    if (material && !Array.isArray(material) && material.transparent) seeThrough.push(object)
+  })
+  const renderOcclusion = gtao.render.bind(gtao)
+  gtao.render = (...args: Parameters<typeof renderOcclusion>) => {
+    const visibility = seeThrough.map((object) => object.visible)
+    for (const object of seeThrough) object.visible = false
+    renderOcclusion(...args)
+    seeThrough.forEach((object, index) => { object.visible = visibility[index] })
+  }
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.12, 0.5, 1.2)
   composer.addPass(bloom)
-  const bokeh = new BokehPass(scene, camera, { focus: 34, aperture: 0.00022, maxblur: 0.0042 })
-  composer.addPass(bokeh)
   const outputPass = new OutputPass()
   composer.addPass(outputPass)
-  const fxaa = new FXAAPass()
-  composer.addPass(fxaa)
+  const grade = new ShaderPass(GRADE_SHADER)
+  composer.addPass(grade)
 
   const projected: ProjectedAnchor[] = built.map((item) => ({
     id: item.id,
@@ -244,44 +275,92 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   let frame = 0
   let disposed = false
   let ready = false
+  let visible = !document.hidden
+  let dirty = true
+  let settling = false
+  let lastRender = 0
+  let lastTick = 0
+  let renderedFrames = 0
+  let sampleStart = 0
+  let sampledFrames = 0
   const restPos = HOME_POS.clone()
   const restTarget = HOME_TARGET.clone()
   const goalPos = HOME_POS.clone()
   const goalTarget = HOME_TARGET.clone()
   let dragging = false
-  const timer = new THREE.Timer()
-  timer.connect(document)
   let motionTime = 0
+
+  const still = () => paused || reduced
+  const schedule = () => {
+    if (!disposed && visible && !frame) frame = requestAnimationFrame(tick)
+  }
+  const invalidate = () => {
+    dirty = true
+    schedule()
+  }
+  const onVisibility = () => {
+    visible = !document.hidden
+    if (!visible) {
+      cancelAnimationFrame(frame)
+      frame = 0
+      sampleStart = 0
+      sampledFrames = 0
+    } else {
+      lastTick = 0
+      invalidate()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+  controls.addEventListener('change', invalidate)
 
   controls.addEventListener('start', () => {
     dragging = true
+    invalidate()
   })
   controls.addEventListener('end', () => {
     dragging = false
     restPos.copy(camera.position)
     restTarget.copy(controls.target)
+    invalidate()
   })
 
   const resize = () => {
     const width = canvas.clientWidth
     const height = canvas.clientHeight
     if (width === 0 || height === 0) return
+    mobile = window.matchMedia('(max-width: 700px)').matches
     camera.aspect = width / Math.max(1, height)
     camera.updateProjectionMatrix()
+    renderer.setPixelRatio(pixelRatio())
     renderer.setSize(width, height, false)
     composer.setSize(width, height)
+    const pixels = renderer.getDrawingBufferSize(new THREE.Vector2())
+    reflection.setSize(pixels.x, pixels.y, quality === 'low' ? 0.15 : 0.22)
+    ;(grade.uniforms as { uTexel: { value: THREE.Vector2 } }).uTexel.value.set(1 / pixels.x, 1 / pixels.y)
+    invalidate()
   }
   const observer = new ResizeObserver(resize)
   observer.observe(options.world)
   resize()
 
-  const still = () => paused || reduced
+  const easterEggs = createEasterEggs(canvas, options.world, scene, camera, shore.mesh, secretTargets, shore.specialTree, disposal, still)
+  seeThrough.push(...easterEggs.transparentObjects)
+  reflectionHidden.push(...easterEggs.transparentObjects)
 
-  const tick = () => {
-    if (disposed) return
-    frame = requestAnimationFrame(tick)
-    timer.update()
-    const dt = Math.min(0.05, timer.getDelta())
+  function tick(now: number) {
+    frame = 0
+    if (disposed || !visible) return
+    const animating = !still()
+    const minFrameTime = 1000 / (quality === 'low' ? 24 : 30)
+    if (animating && now - lastRender < minFrameTime) {
+      schedule()
+      return
+    }
+    if (!animating && !dirty && !settling) return
+    dirty = false
+    const dt = lastTick ? Math.min(0.05, (now - lastTick) / 1000) : 0
+    lastTick = now
+    lastRender = now
     if (!still()) motionTime += dt
 
     if (!dragging) {
@@ -297,11 +376,15 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       const blend = 1 - Math.exp(-3.4 * dt)
       camera.position.lerp(goalPos, blend)
       controls.target.lerp(goalTarget, blend)
+      settling = camera.position.distanceToSquared(goalPos) > 0.00001 || controls.target.distanceToSquared(goalTarget) > 0.00001
+    } else {
+      settling = false
     }
 
     setWaterTime(water, motionTime)
     setWaterTime(river, motionTime)
-    ;(bokeh.uniforms as { focus: { value: number } }).focus.value = camera.position.distanceTo(controls.target)
+    windUniforms.uWind.value = motionTime
+    if (!still()) for (const update of animators) update(motionTime)
     for (const item of bobbers) {
       const target = still()
         ? item.base
@@ -313,7 +396,12 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
     controls.enableDamping = !reduced
     controls.update()
+    easterEggs.update()
+    if (!animating) reflection.update(renderer, scene, camera)
     composer.render()
+    // During motion, reuse this frame's shadow map and update the mirror less often.
+    if (animating && renderedFrames % (quality === 'low' ? 6 : 3) === 0) reflection.update(renderer, scene, camera)
+    renderedFrames++
     projectAnchors(camera, options.world, projected)
     if (card && openId) {
       const point = built.find((item) => item.id === openId)?.label
@@ -322,41 +410,69 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       card.hidden = true
     }
 
-    if (!ready && !disposed) {
+    if (!ready && !disposed && (renderedFrames >= 2 || !animating)) {
       ready = true
       options.onProgress(1)
       options.onReady()
     }
+    if (animating) {
+      if (!sampleStart) sampleStart = now
+      sampledFrames++
+      if (quality === 'balanced' && now - sampleStart >= 3000) {
+        const fps = sampledFrames * 1000 / (now - sampleStart)
+        if (fps < 24) {
+          quality = 'low'
+          gtao.enabled = false
+          bloom.enabled = false
+          sun.shadow.mapSize.set(1024, 1024)
+          sun.shadow.map?.dispose()
+          sun.shadow.map = null
+          resize()
+        }
+        sampleStart = now
+        sampledFrames = 0
+      }
+      schedule()
+    } else if (dirty || settling) {
+      schedule()
+    }
   }
-  tick()
+  schedule()
 
   return {
     dispose() {
       if (disposed) return
       disposed = true
       cancelAnimationFrame(frame)
+      document.removeEventListener('visibilitychange', onVisibility)
+      controls.removeEventListener('change', invalidate)
       observer.disconnect()
+      easterEggs.dispose()
       controls.dispose()
-      ssao.dispose()
+      gtao.dispose()
       bloom.dispose()
-      bokeh.dispose()
       outputPass.dispose()
-      fxaa.dispose()
+      grade.dispose()
       composer.dispose()
+      composerTarget.dispose()
+      reflection.dispose()
       disposal.dispose()
       hemi.dispose()
       sun.dispose()
       fill.dispose()
-      timer.dispose()
       renderer.dispose()
       renderer.forceContextLoss()
     },
     setPaused(next) {
       paused = next
+      lastTick = 0
+      invalidate()
     },
     setReducedMotion(next) {
       reduced = next
       controls.enableDamping = !next
+      lastTick = 0
+      invalidate()
     },
     resetView() {
       hovered = null
@@ -365,16 +481,50 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       camera.position.copy(HOME_POS)
       controls.target.copy(HOME_TARGET)
       controls.update()
+      invalidate()
     },
     setHovered(id) {
       hovered = id
+      invalidate()
     },
     setCard(id, element) {
       openId = id
       card = element
       if (card && !id) card.hidden = true
+      invalidate()
     },
   }
+}
+
+/** Display-space grade: gentle S-curve, a touch more saturation, split toning, and a light sharpen. */
+const GRADE_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `uniform sampler2D tDiffuse;
+    uniform vec2 uTexel;
+    varying vec2 vUv;
+    void main() {
+      vec4 source = texture2D(tDiffuse, vUv);
+      vec3 color = source.rgb;
+      vec3 around = texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb
+        + texture2D(tDiffuse, vUv - vec2(uTexel.x, 0.0)).rgb
+        + texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb
+        + texture2D(tDiffuse, vUv - vec2(0.0, uTexel.y)).rgb;
+      color += (color - around * 0.25) * 0.45;
+      color = clamp(color, 0.0, 1.0);
+      color = mix(color, color * color * (3.0 - 2.0 * color), 0.3);
+      float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+      color = mix(vec3(luma), color, 1.12);
+      color += vec3(-0.014, 0.0, 0.018) * (1.0 - luma) + vec3(0.018, 0.008, -0.014) * luma;
+      gl_FragColor = vec4(clamp(color, 0.0, 1.0), source.a);
+    }`,
 }
 
 async function loadIcons(disposal: Disposal, urls: Array<string | undefined>) {

@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { terrainHeight } from '../ground'
-import { addChimney, addDoor, addEaves, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
+import { addChimney, addDoor, addEaves, addFlowerBox, addGable, addLogWalls, addMesh, addPlanter, addSash } from '../parts'
 
 export function buildRange(
   parent: THREE.Object3D,
@@ -51,6 +51,7 @@ export function buildRange(
   const face = depth / 2 + 0.14
   addDoor(group, disposal, trim, doorPanel, [-0.7, 0.78, face], '+z', 0.5, 1.05)
   addSash(group, disposal, trim, warm, [0.55, 1.2, face], '+z', 0.48, 0.55)
+  addFlowerBox(group, disposal, wood, leaf, [0.55, 0.81, face], '+z', 0.64)
   const shutter = disposal.geo(new THREE.BoxGeometry(0.14, 0.52, 0.04))
   addMesh(group, shutter, wood, [0.18, 1.2, face], { rotation: [0, 0.16, 0] })
   addMesh(group, shutter, wood, [0.92, 1.2, face], { rotation: [0, -0.16, 0] })

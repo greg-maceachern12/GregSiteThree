@@ -1,6 +1,6 @@
 import type { Card } from './moments'
 
-/** Active projects from gregmac.ca, gathered as a small village. */
+/** Active projects from gregmac.ca, gathered as their own hamlet on the west shore. */
 export const village: Card[] = [
   {
     id: 'baselift',
@@ -9,7 +9,7 @@ export const village: Card[] = [
     href: 'https://www.baselift.io',
     icon: '/projects/baselift.png',
     place: 'cottage',
-    position: [7.7, 10.75],
+    position: [-13.1, 10.3],
   },
   {
     id: 'visuai',
@@ -18,7 +18,7 @@ export const village: Card[] = [
     href: 'https://www.visuai.io',
     icon: '/projects/visuai.png',
     place: 'cottage',
-    position: [10.4, 10.6],
+    position: [-12.6, 11.9],
   },
   {
     id: 'primer',
@@ -28,7 +28,7 @@ export const village: Card[] = [
     href: 'https://primerai.io',
     icon: '/projects/primer.png',
     place: 'cottage',
-    position: [7.4, 12.15],
+    position: [-11.2, 12.5],
   },
   {
     id: 'musicmilk',
@@ -37,7 +37,7 @@ export const village: Card[] = [
     href: 'https://musicmilk.co',
     icon: '/projects/musicmilk.png',
     place: 'cottage',
-    position: [10.6, 12.05],
+    position: [-9.8, 12.2],
   },
   {
     id: 'consultancy',
@@ -46,6 +46,6 @@ export const village: Card[] = [
     href: 'https://www.greg.so',
     icon: '/projects/consultancy.png',
     place: 'cottage',
-    position: [9.05, 11.45],
+    position: [-9.4, 11.3],
   },
 ]

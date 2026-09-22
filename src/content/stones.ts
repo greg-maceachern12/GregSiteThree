@@ -11,7 +11,7 @@ export const stones: Stone[] = [
     href: 'https://ghola.co',
     icon: '/projects/ghola.png',
     place: 'stone',
-    position: [-4.2, 16.5],
+    position: [1.55, -17.6],
   },
   {
     id: 'moolah',
@@ -20,7 +20,7 @@ export const stones: Stone[] = [
     href: 'https://moolah-app.netlify.app/',
     icon: '/projects/moolah.png',
     place: 'stone',
-    position: [-3.25, 17.15],
+    position: [3.45, -18.25],
   },
   {
     id: 'resuto',
@@ -29,7 +29,7 @@ export const stones: Stone[] = [
     href: 'https://resutolanding.netlify.app/',
     icon: '/projects/resuto.png',
     place: 'stone',
-    position: [-2.15, 16.55],
+    position: [5.35, -17.6],
   },
   {
     id: 'pace',
@@ -38,7 +38,7 @@ export const stones: Stone[] = [
     href: 'https://convertpace.netlify.app/',
     icon: '/projects/pace.png',
     place: 'stone',
-    position: [-1.05, 17.2],
+    position: [2.45, -15.95],
   },
   {
     id: 'github',
@@ -47,6 +47,6 @@ export const stones: Stone[] = [
     href: 'https://github.com/greg-maceachern12?tab=repositories',
     icon: '/projects/github.png',
     place: 'stone',
-    position: [-0.25, 16.6],
+    position: [5.75, -15.95],
   },
 ]
