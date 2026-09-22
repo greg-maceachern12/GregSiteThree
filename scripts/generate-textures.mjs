@@ -5,7 +5,7 @@ const SIZE = 1024
 const LAKE_RX = 17
 const LAKE_RZ = 12.2
 const LAKE_CZ = -0.6
-const TERRAIN = 78
+const TERRAIN = 96
 
 await mkdir('public/textures', { recursive: true })
 await mkdir('public/env', { recursive: true })

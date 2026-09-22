@@ -285,6 +285,43 @@ export function addChimney(
   addMesh(parent, disposal.geo(new THREE.BoxGeometry(0.26, 0.12, 0.26)), cap, [x, base + height + 0.14, z])
 }
 
+/** A short run of rail with a post at each end. */
+export function addRailing(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  material: THREE.Material,
+  start: [number, number, number],
+  end: [number, number, number],
+  height = 0.62,
+) {
+  const dx = end[0] - start[0]
+  const dz = end[2] - start[2]
+  const length = Math.hypot(dx, dz) || 0.001
+  const yaw = Math.atan2(dx, dz)
+  addMesh(
+    parent,
+    disposal.geo(new THREE.BoxGeometry(0.045, 0.04, length)),
+    material,
+    [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2 + height, (start[2] + end[2]) / 2],
+    { rotation: [0, yaw, 0] },
+  )
+  const post = disposal.geo(new THREE.CylinderGeometry(0.03, 0.035, height, 5))
+  addMesh(parent, post, material, [start[0], start[1] + height / 2, start[2]])
+  addMesh(parent, post, material, [end[0], end[1] + height / 2, end[2]])
+}
+
+export function addStep(
+  parent: THREE.Object3D,
+  disposal: Disposal,
+  material: THREE.Material,
+  position: [number, number, number],
+  width: number,
+  depth: number,
+  rise: number,
+) {
+  return addMesh(parent, disposal.geo(new THREE.BoxGeometry(width, rise, depth)), material, position)
+}
+
 export function addCornerBoards(
   parent: THREE.Object3D,
   disposal: Disposal,

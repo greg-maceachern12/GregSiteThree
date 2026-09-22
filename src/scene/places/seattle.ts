@@ -135,10 +135,21 @@ export function buildSeattle(
     addMesh(slip, piling, dark, [-0.5, pierY - 0.45, pz])
     addMesh(slip, piling, dark, [0.5, pierY - 0.45, pz])
   }
+  const bollard = disposal.geo(new THREE.CylinderGeometry(0.09, 0.1, 0.42, 6))
+  addMesh(slip, bollard, rig, [-0.55, pierY + 0.28, slipZ - 0.35])
+  addMesh(slip, bollard, rig, [0.55, pierY + 0.28, slipZ - 0.35])
+  addMesh(slip, disposal.geo(new THREE.BoxGeometry(0.85, 0.65, 0.72)), dark, [1.35, pierY + 0.38, slipZ + 0.15])
+  addMesh(slip, disposal.geo(new THREE.BoxGeometry(0.72, 0.08, 0.08)), rig, [1.35, pierY + 0.72, slipZ + 0.15])
+  const ring = standard(disposal, { color: '#d6453a', roughness: 0.55, metalness: 0.08 })
+  addMesh(slip, disposal.geo(new THREE.TorusGeometry(0.14, 0.028, 6, 12)), ring, [0.42, pierY + 0.55, slipZ], {
+    rotation: [Math.PI / 2, 0.2, 0],
+  })
 
   return {
     label: new THREE.Vector3(x, WATER_Y + 3.7, z),
     focus: new THREE.Vector3(x, WATER_Y + 1.35, z),
+    boat,
+    home: new THREE.Vector2(x, z),
   }
 }
 

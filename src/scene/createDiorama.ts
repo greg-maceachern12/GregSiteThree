@@ -52,7 +52,7 @@ export type Diorama = {
   setCard: (id: string | null, element: HTMLElement | null) => void
 }
 
-const HOME_POS = new THREE.Vector3(2.2, 23.5, 29.5)
+const HOME_POS = new THREE.Vector3(2.2, 25.5, 33)
 const HOME_TARGET = new THREE.Vector3(0.8, 0.45, 1.4)
 const SHIFT = new THREE.Vector3()
 type Built = {
@@ -104,7 +104,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   controls.dampingFactor = 0.08
   controls.enablePan = false
   controls.minDistance = 12
-  controls.maxDistance = 40
+  controls.maxDistance = 48
   controls.minPolarAngle = 0.38
   controls.maxPolarAngle = 1.12
   controls.rotateSpeed = 0.55
@@ -147,22 +147,27 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   sun.shadow.intensity = 0.7
   sun.shadow.camera.near = 2
   sun.shadow.camera.far = 70
-  sun.shadow.camera.left = -32
-  sun.shadow.camera.right = 32
-  sun.shadow.camera.top = 32
-  sun.shadow.camera.bottom = -32
+  sun.shadow.camera.left = -34
+  sun.shadow.camera.right = 34
+  sun.shadow.camera.top = 34
+  sun.shadow.camera.bottom = -34
   sun.shadow.camera.updateProjectionMatrix()
   scene.add(sun)
   const fill = new THREE.DirectionalLight('#c5d7e4', 0.08)
   fill.position.set(16, 8, -10)
   scene.add(fill)
 
-  buildShore(scene, disposal, atlas)
+  const shoreWind = buildShore(scene, disposal, atlas)
+  const warmLightList: THREE.PointLight[] = []
   const water = buildLake(scene, disposal, atlas)
   const river = buildRiver(scene, disposal, atlas)
   buildPath(scene, disposal, atlas)
 
   const built: Built[] = []
+  let seattleBoat: THREE.Object3D | null = null
+  let seattleHome = new THREE.Vector2()
+  let seattleAnchor: Built | null = null
+  const seattleLabel = new THREE.Vector3()
   const bobbers: { object: THREE.Object3D; base: number; phase: number; amplitude: number }[] = []
   const bob = (object: THREE.Object3D, amplitude = 0.04) => {
     bobbers.push({ object, base: object.position.y, phase: bobbers.length * 1.17, amplitude })
@@ -173,20 +178,24 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     let place: { label: THREE.Vector3; focus: THREE.Vector3 }
     switch (anchor.id) {
       case 'newyork':
-        place = buildHouse(scene, disposal, atlas, x, z)
+        place = buildHouse(scene, disposal, atlas, x, z, warmLightList)
         break
       case 'music':
         place = buildStage(scene, disposal, atlas, x, z)
         break
       case 'range':
-        place = buildRange(scene, disposal, atlas, x, z)
+        place = buildRange(scene, disposal, atlas, x, z, warmLightList)
         break
       case 'queens':
         place = buildQueens(scene, disposal, atlas, x, z)
         break
-      case 'seattle':
-        place = buildSeattle(scene, disposal, atlas, x, z, bob)
+      case 'seattle': {
+        const seattle = buildSeattle(scene, disposal, atlas, x, z, bob)
+        place = seattle
+        seattleBoat = seattle.boat
+        seattleHome.copy(seattle.home)
         break
+      }
       case 'microsoft':
         place = buildMicrosoft(scene, disposal, atlas, x, z)
         break
@@ -206,8 +215,12 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
         }
         break
     }
-    built.push({ id: anchor.id, label: place.label, focus: place.focus, element: anchor.element })
+    const entry = { id: anchor.id, label: place.label, focus: place.focus, element: anchor.element }
+    built.push(entry)
+    if (anchor.id === 'seattle') seattleAnchor = entry
   }
+
+  const warmLights = warmLightList.map((light) => ({ light, base: light.intensity }))
 
   buildGraveyard(scene, disposal, atlas)
   buildVillageGreen(scene, disposal, atlas)
@@ -301,14 +314,25 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
     setWaterTime(water, motionTime)
     setWaterTime(river, motionTime)
+    shoreWind.windTime.value = motionTime
+    shoreWind.windAmp.value = still() ? 0 : 1
     ;(bokeh.uniforms as { focus: { value: number } }).focus.value = camera.position.distanceTo(controls.target)
     for (const item of bobbers) {
       const target = still()
         ? item.base
         : item.base + Math.sin(motionTime * 0.8 + item.phase) * item.amplitude
-      item.object.position.y = still()
-        ? THREE.MathUtils.damp(item.object.position.y, item.base, 5, dt)
-        : target
+      item.object.position.y = THREE.MathUtils.damp(item.object.position.y, target, still() ? 5 : 7, dt)
+    }
+    const glow = still() ? 1 : 0.88 + Math.sin(motionTime * 1.15) * 0.12
+    for (const warm of warmLights) warm.light.intensity = warm.base * glow
+    if (seattleBoat && seattleAnchor) {
+      if (!still()) {
+        seattleBoat.position.x = seattleHome.x + Math.sin(motionTime * 0.11) * 0.45
+        seattleBoat.position.z = seattleHome.y + Math.cos(motionTime * 0.085) * 0.28
+      }
+      seattleBoat.getWorldPosition(seattleLabel)
+      seattleLabel.y += 2.35
+      seattleAnchor.label.copy(seattleLabel)
     }
 
     controls.enableDamping = !reduced

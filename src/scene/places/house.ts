@@ -4,7 +4,7 @@ import { surfaceMaterial } from '../assets'
 import type { Disposal } from '../disposal'
 import { standard } from '../disposal'
 import { WATER_Y, terrainHeight } from '../ground'
-import { addMesh, addPlanter } from '../parts'
+import { addDoor, addMesh, addPlanter, addRailing, addSash, addStep } from '../parts'
 
 export function buildHouse(
   parent: THREE.Object3D,
@@ -12,6 +12,7 @@ export function buildHouse(
   atlas: Atlas,
   x: number,
   z: number,
+  warmLights?: THREE.PointLight[],
 ) {
   const ground = terrainHeight(x, z)
   const group = new THREE.Group()
@@ -93,11 +94,19 @@ export function buildHouse(
   addMesh(group, disposal.geo(new THREE.BoxGeometry(4.3, 0.03, 0.03)), metal, [0, 1.55, -3.55])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(1.15, 0.06, 0.42)), stone, [0, 0.14, 2.42])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(1.28, 0.06, 0.38)), stone, [0, 0.08, 2.78])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(6.5, 0.14, 4.35)), stone, [0, 0.04, 0])
+  const trim = standard(disposal, { color: '#e8dfd0', roughness: 0.62, metalness: 0.02 })
+  const doorPanel = standard(disposal, { color: '#5c4032', roughness: 0.74, metalness: 0.03 })
+  addDoor(group, disposal, trim, doorPanel, [0, 0.72, 2.12], '+z', 0.72, 1.12)
+  addSash(group, disposal, trim, glass, [-1.55, 1.35, 2.12], '+z', 0.52, 0.62)
+  addSash(group, disposal, trim, glass, [1.55, 1.35, 2.12], '+z', 0.52, 0.62)
+  addRailing(group, disposal, metal, [-2.05, 1.05, -3.55], [2.05, 1.05, -3.55], 0.52)
   addPlanter(group, disposal, wood, leaf, [2.7, 0, 2.35])
 
   const lamp = new THREE.PointLight('#ffb15e', 2.2, 5.5, 2)
   lamp.position.set(0.2, 1.7, 0.2)
   group.add(lamp)
+  warmLights?.push(lamp)
 
   const dockY = WATER_Y - ground + 0.08
   const dockLength = 6.2
@@ -112,6 +121,11 @@ export function buildHouse(
     addMesh(group, piling, metal, [-0.5, dockY - 0.4, pz])
     addMesh(group, piling, metal, [0.8, dockY - 0.4, pz])
   }
+  addMesh(group, disposal.geo(new THREE.TorusGeometry(0.07, 0.018, 6, 10)), metal, [0.55, dockY + 0.12, -2.15 - dockLength * 0.15], {
+    rotation: [Math.PI / 2, 0, 0.4],
+  })
+  addStep(group, disposal, stone, [0, 0.12, 2.55], 1.35, 0.32, 0.08)
+  addStep(group, disposal, stone, [0, 0.2, 2.72], 1.2, 0.28, 0.08)
 
   return {
     label: new THREE.Vector3(x, ground + 3.85, z),

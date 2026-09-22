@@ -292,7 +292,17 @@ function marker(disposal: Disposal, atlas: Atlas, rotation: number, icon?: THREE
   const slate = surfaceMaterial(disposal, atlas.slate, { roughness: 0.9 })
   const plaque = standard(disposal, { color: '#f4efe6', roughness: 0.62, metalness: 0.02 })
 
-  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.72, 0.1, 0.32)), slate, [0, 0.05, 0])
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(1.05, 0.08, 0.82)), slate, [0, 0.02, 0])
+  const border = disposal.geo(new THREE.BoxGeometry(0.06, 0.12, 0.06))
+  for (const [bx, bz] of [
+    [-0.48, -0.36],
+    [0.48, -0.36],
+    [-0.48, 0.36],
+    [0.48, 0.36],
+  ] as const) {
+    addMesh(group, border, slate, [bx, 0.06, bz])
+  }
+  addMesh(group, disposal.geo(new THREE.BoxGeometry(0.72, 0.1, 0.32)), slate, [0, 0.1, 0])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(0.56, 1.05, 0.14)), slate, [0, 0.58, 0])
   const cap = addMesh(group, disposal.geo(new THREE.SphereGeometry(0.28, 8, 6)), slate, [0, 1.05, 0])
   cap.scale.set(1, 0.42, 0.5)

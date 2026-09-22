@@ -12,6 +12,7 @@ export function buildRange(
   atlas: Atlas,
   x: number,
   z: number,
+  warmLights?: THREE.PointLight[],
 ) {
   const ground = terrainHeight(x, z)
   const group = new THREE.Group()
@@ -51,11 +52,15 @@ export function buildRange(
   const face = depth / 2 + 0.14
   addDoor(group, disposal, trim, doorPanel, [-0.7, 0.78, face], '+z', 0.5, 1.05)
   addSash(group, disposal, trim, warm, [0.55, 1.2, face], '+z', 0.48, 0.55)
+  addSash(group, disposal, trim, warm, [-0.55, 1.2, face], '+z', 0.42, 0.5)
   const shutter = disposal.geo(new THREE.BoxGeometry(0.14, 0.52, 0.04))
   addMesh(group, shutter, wood, [0.18, 1.2, face], { rotation: [0, 0.16, 0] })
   addMesh(group, shutter, wood, [0.92, 1.2, face], { rotation: [0, -0.16, 0] })
   addSash(group, disposal, trim, glass, [0.2, 1.22, -face], '-z', 0.42, 0.48)
 
+  for (let i = 0; i < 4; i++) {
+    addMesh(group, disposal.geo(new THREE.BoxGeometry(0.52, 0.05, 0.78)), wood, [-0.78 + i * 0.52, 0.2, face + 0.34])
+  }
   addMesh(group, disposal.geo(new THREE.BoxGeometry(2.4, 0.08, 0.85)), wood, [0, 0.16, face + 0.32])
   const post = disposal.geo(new THREE.CylinderGeometry(0.055, 0.065, 1.2, 6))
   addMesh(group, post, logs, [-1.05, 0.72, face + 0.62])
@@ -63,10 +68,12 @@ export function buildRange(
   addMesh(group, disposal.geo(new THREE.BoxGeometry(2.35, 0.06, 0.7)), roof, [0, 1.38, face + 0.4])
   addMesh(group, disposal.geo(new THREE.BoxGeometry(2.2, 0.04, 0.04)), trim, [0, 0.95, face + 0.66])
   addPlanter(group, disposal, wood, leaf, [1.7, 0, face + 0.15])
+  addPlanter(group, disposal, wood, leaf, [-1.55, 0, face + 0.12])
 
   const lamp = new THREE.PointLight('#ffb15e', 2.4, 5.2, 2)
   lamp.position.set(0.3, 1.35, 0.4)
   group.add(lamp)
+  warmLights?.push(lamp)
 
   return {
     label: new THREE.Vector3(x, ground + 3.65, z),
