@@ -37,20 +37,89 @@ export function buildLake(parent: THREE.Object3D, disposal: Disposal, atlas: Atl
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
   geometry.computeVertexNormals()
 
+  const shore = new Float32Array(position.count)
+  for (let i = 0; i < position.count; i++) {
+    shore[i] = lakeRadius(position.getX(i), position.getZ(i))
+  }
+  geometry.setAttribute('shore', new THREE.BufferAttribute(shore, 1))
+
   const material = standard(disposal, {
     map: atlas.waterColor,
     roughnessMap: atlas.waterRoughness,
     normalMap: atlas.waterNormal,
-    roughness: 1,
-    metalness: 0.08,
-    envMapIntensity: 1.05,
+    normalScale: new THREE.Vector2(1.25, 1.25),
+    roughness: 0.55,
+    metalness: 0.03,
+    envMapIntensity: 1.95,
   })
   material.fog = false
+  shadeWater(material)
   const mesh = new THREE.Mesh(geometry, material)
   mesh.position.y = WATER_Y
   mesh.receiveShadow = true
   parent.add(mesh)
   return mesh
+}
+
+export function setWaterTime(mesh: THREE.Mesh, time: number) {
+  const material = mesh.material
+  if (Array.isArray(material)) return
+  const shader = material.userData.shader as { uniforms: { uTime: { value: number } } } | undefined
+  if (shader) shader.uniforms.uTime.value = time
+}
+
+export const WATER_COLOR_CHUNK = `#include <color_fragment>
+         vec3 deepWater = vec3(0.07, 0.30, 0.38);
+         vec3 bottom = vec3(0.90, 0.82, 0.62);
+         diffuseColor.rgb = mix(diffuseColor.rgb, deepWater, smoothstep(0.78, 0.2, vShore) * 0.28);
+         diffuseColor.rgb = mix(diffuseColor.rgb, bottom, smoothstep(0.62, 0.96, vShore) * 0.34);
+         float foamBand = smoothstep(0.8, 0.95, vShore);
+         float foamNoise = texture2D(normalMap, vNormalMapUv * 3.2 + vec2(uTime * 0.12, -uTime * 0.05)).y;
+         float foam = foamBand * smoothstep(0.4, 0.78, foamNoise);
+         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.94, 0.96, 0.93), foam);`
+
+export const WATER_ROUGHNESS_CHUNK = `#include <roughnessmap_fragment>
+         float edge = smoothstep(0.72, 0.96, vShore);
+         roughnessFactor = mix(0.2, roughnessFactor, smoothstep(0.12, 0.75, vShore));
+         roughnessFactor = mix(roughnessFactor, 0.78, edge);`
+
+function shadeWater(material: THREE.MeshStandardMaterial) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 }
+    material.userData.shader = shader
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+         attribute float shore;
+         varying float vShore;`,
+      )
+      .replace(
+        '#include <uv_vertex>',
+        `#include <uv_vertex>
+         vShore = shore;`,
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+         varying float vShore;
+         uniform float uTime;`,
+      )
+      .replace('#include <color_fragment>', WATER_COLOR_CHUNK)
+      .replace('#include <roughnessmap_fragment>', WATER_ROUGHNESS_CHUNK)
+      .replace(
+        '#include <normal_fragment_maps>',
+        `vec2 scrollA = vNormalMapUv + vec2(uTime * 0.016, uTime * 0.009);
+         vec2 scrollB = vNormalMapUv * 2.55 + vec2(-uTime * 0.023, uTime * 0.018);
+         vec3 mapN = texture2D(normalMap, scrollA).xyz * 2.0 - 1.0;
+         vec3 mapN2 = texture2D(normalMap, scrollB).xyz * 2.0 - 1.0;
+         mapN = normalize(vec3(mapN.xy * 0.7 + mapN2.xy * 0.9, 1.0));
+         mapN.xy *= normalScale;
+         normal = normalize(tbn * mapN);`,
+      )
+  }
+  material.customProgramCacheKey = () => 'lake-water'
 }
 
 export function buildWatercraft(
@@ -67,25 +136,6 @@ export function buildWatercraft(
   canoe.castShadow = true
   parent.add(canoe)
   bob(canoe, 0.03)
-
-  const rowboat = new THREE.Group()
-  rowboat.position.set(4.4, WATER_Y + 0.02, 3.2)
-  rowboat.rotation.y = -0.6
-  const hull = new THREE.Mesh(canoeGeometry(disposal), wood)
-  hull.scale.set(0.95, 0.6, 1.05)
-  hull.castShadow = true
-  rowboat.add(hull)
-  const oar = disposal.geo(new THREE.BoxGeometry(0.9, 0.03, 0.08))
-  const left = new THREE.Mesh(oar, wood)
-  left.position.set(-0.35, 0.14, 0.15)
-  left.rotation.z = 0.4
-  rowboat.add(left)
-  const right = new THREE.Mesh(oar, wood)
-  right.position.set(0.35, 0.14, -0.1)
-  right.rotation.z = -0.4
-  rowboat.add(right)
-  parent.add(rowboat)
-  bob(rowboat, 0.028)
 
   const raft = new THREE.Group()
   raft.position.set(-6.2, WATER_Y + 0.06, 1.6)

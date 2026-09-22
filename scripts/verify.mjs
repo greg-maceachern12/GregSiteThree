@@ -38,7 +38,28 @@ await page.waitForFunction(() => {
 })
 
 const order = await page.$$eval('[data-anchor]', (nodes) => nodes.map((node) => node.getAttribute('data-anchor')))
-assert(JSON.stringify(order) === JSON.stringify(['queens', 'seattle', 'microsoft', 'newyork', 'music', 'range', 'audiometa']), order.join(','))
+assert(
+  JSON.stringify(order) ===
+    JSON.stringify([
+      'queens',
+      'seattle',
+      'microsoft',
+      'newyork',
+      'music',
+      'range',
+      'ghola',
+      'moolah',
+      'resuto',
+      'pace',
+      'github',
+      'baselift',
+      'visuai',
+      'primer',
+      'musicmilk',
+      'consultancy',
+    ]),
+  order.join(','),
+)
 
 const heading = await page.$eval('h1', (node) => node.textContent)
 assert(heading === 'Greg Mac', heading)
@@ -91,12 +112,22 @@ await openCard(page, 'range')
 await page.mouse.click(40, 40)
 await page.waitForFunction(() => !document.querySelector('.card'))
 
-await openCard(page, 'audiometa')
-await expectText(page, '.card h2', 'Audiometa')
-assert((await page.$('.card .role')) === null, 'stone role')
-assert((await page.$('.card .detail')) === null, 'stone detail')
-const audio = await page.$eval('.card .card-link', (node) => node.href)
-assert(audio === 'https://audiometa.io/', audio)
+await openCard(page, 'ghola')
+await expectText(page, '.card h2', 'Ghola AI')
+await expectText(page, '.card .detail', 'Visualization of characters from books & stories.')
+const gholaIcon = await page.$eval('.card .project-icon', (node) => node.getAttribute('src'))
+assert(gholaIcon === '/projects/ghola.png', gholaIcon)
+const ghola = await page.$eval('.card .card-link', (node) => node.href)
+assert(ghola === 'https://ghola.co/', ghola)
+
+await page.keyboard.press('Escape')
+await page.waitForFunction(() => !document.querySelector('.card'))
+
+await openCard(page, 'baselift')
+await expectText(page, '.card h2', 'Baselift')
+await expectText(page, '.card .detail', 'Custom workout splits using AI')
+const baselift = await page.$eval('.card .card-link', (node) => node.href)
+assert(baselift === 'https://www.baselift.io/', baselift)
 
 await page.click('[aria-label="Pause motion"]')
 const paused = await page.$eval('[aria-label="Play motion"]', (node) => node.getAttribute('aria-pressed'))
@@ -128,7 +159,7 @@ await fallback.waitForFunction(
   { timeout: 15000 },
 )
 const names = await fallback.$$eval('.fallback button', (nodes) => nodes.map((node) => node.textContent))
-assert(names.includes('Seattle') && names.includes('Audiometa'), names.join(','))
+assert(names.includes('Seattle') && names.includes('Ghola AI') && names.includes('Baselift'), names.join(','))
 const poster = await fallback.$eval('.preview', (node) => getComputedStyle(node).opacity)
 assert(poster === '1', poster)
 await fallback.click('.fallback button')

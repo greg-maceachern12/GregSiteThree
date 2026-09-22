@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { moments, type Card } from './content/moments'
 import { stones } from './content/stones'
+import { village } from './content/village'
 import type { Diorama } from './scene/createDiorama'
 
-const cards: Card[] = [...moments, ...stones]
+const cards: Card[] = [...moments, ...stones, ...village]
 
 function hostLabel(href: string) {
   try {
@@ -48,7 +49,14 @@ export function App() {
     const anchors = cards.flatMap((card) => {
       const element = buttonRefs.current.get(card.id)
       if (!element) return []
-      return [{ id: card.id, name: card.name, position: card.position, element }]
+      return [{
+        id: card.id,
+        name: card.name,
+        position: card.position,
+        element,
+        icon: card.icon,
+        place: card.place,
+      }]
     })
 
     void (async () => {
@@ -190,7 +198,10 @@ export function App() {
             onClick={() => setOpenId(card.id)}
           >
             <span className="point" />
-            <span className="hover-label">{card.name}</span>
+            <span className="hover-label">
+              {card.icon ? <img src={card.icon} alt="" /> : null}
+              {card.name}
+            </span>
           </button>
         ))}
 
@@ -206,6 +217,7 @@ export function App() {
             </button>
             <h2 id={titleId}>
               {open.id === 'microsoft' ? <FourPaneMark /> : null}
+              {open.icon ? <img className="project-icon" src={open.icon} alt="" /> : null}
               {open.name}
             </h2>
             {open.role ? <p className="role">{open.role}</p> : null}

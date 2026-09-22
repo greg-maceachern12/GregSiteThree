@@ -1,12 +1,22 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { buildAnimals } from './animals'
 import { placeCard, projectAnchors, type ProjectedAnchor } from './anchors'
 import { loadAtlas } from './assets'
 import { Disposal } from './disposal'
 import { FOG } from './ground'
-import { buildLake, buildWatercraft } from './lake'
+import { buildLake, buildWatercraft, setWaterTime } from './lake'
+import { buildRiver } from './river'
 import { buildPath } from './paths'
 import { buildGraveyard, buildStone } from './places/graveyard'
+import { buildCottage, buildVillageGreen } from './places/village'
 import { buildHouse } from './places/house'
 import { buildMicrosoft } from './places/microsoft'
 import { buildQueens } from './places/queens'
@@ -20,6 +30,8 @@ export type AnchorInput = {
   name: string
   position: [number, number]
   element: HTMLButtonElement
+  icon?: string
+  place?: 'stone' | 'cottage'
 }
 
 export type DioramaOptions = {
@@ -81,7 +93,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
+  renderer.toneMappingExposure = 1.04
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   renderer.setClearColor(FOG, 1)
@@ -109,28 +121,45 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     return inert()
   }
   scene.environment = atlas.environment
+  scene.environmentIntensity = 1.05
 
-  const hemi = new THREE.HemisphereLight('#f3e4cf', '#6d8a74', 0.42)
+  let icons = new Map<string, THREE.Texture>()
+  try {
+    icons = await loadIcons(disposal, options.anchors.map((anchor) => anchor.icon))
+  } catch (error) {
+    disposal.dispose()
+    renderer.dispose()
+    options.onFail(error)
+    return inert()
+  }
+
+  const hemi = new THREE.HemisphereLight('#f4efe6', '#6d8c98', 0.32)
   scene.add(hemi)
-  const sun = new THREE.DirectionalLight('#ffc48a', 1.85)
-  sun.position.set(-18, 14, 10)
+  const sun = new THREE.DirectionalLight('#ffc48a', 2.45)
+  sun.position.set(-18, 16, 6)
+  sun.target.position.set(0.4, 0.6, 3.2)
+  scene.add(sun.target)
   sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.radius = 6
+  sun.shadow.bias = -0.00015
+  sun.shadow.normalBias = 0.02
+  sun.shadow.intensity = 0.7
   sun.shadow.camera.near = 2
   sun.shadow.camera.far = 70
-  sun.shadow.camera.left = -28
-  sun.shadow.camera.right = 28
-  sun.shadow.camera.top = 28
-  sun.shadow.camera.bottom = -28
-  sun.shadow.bias = -0.00025
-  sun.shadow.normalBias = 0.035
+  sun.shadow.camera.left = -32
+  sun.shadow.camera.right = 32
+  sun.shadow.camera.top = 32
+  sun.shadow.camera.bottom = -32
+  sun.shadow.camera.updateProjectionMatrix()
   scene.add(sun)
-  const fill = new THREE.DirectionalLight('#d7e6f2', 0.32)
-  fill.position.set(14, 9, -8)
+  const fill = new THREE.DirectionalLight('#c5d7e4', 0.08)
+  fill.position.set(16, 8, -10)
   scene.add(fill)
 
   buildShore(scene, disposal, atlas)
-  buildLake(scene, disposal, atlas)
+  const water = buildLake(scene, disposal, atlas)
+  const river = buildRiver(scene, disposal, atlas)
   buildPath(scene, disposal, atlas)
 
   const built: Built[] = []
@@ -162,14 +191,44 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
         place = buildMicrosoft(scene, disposal, atlas, x, z)
         break
       default:
-        place = buildStone(scene, disposal, atlas, x, z, anchor.id)
+        if (anchor.place === 'cottage') {
+          place = buildCottage(scene, disposal, atlas, x, z, anchor.icon ? icons.get(anchor.icon) : undefined)
+        } else {
+          place = buildStone(
+            scene,
+            disposal,
+            atlas,
+            x,
+            z,
+            anchor.id,
+            anchor.icon ? icons.get(anchor.icon) : undefined,
+          )
+        }
         break
     }
     built.push({ id: anchor.id, label: place.label, focus: place.focus, element: anchor.element })
   }
 
   buildGraveyard(scene, disposal, atlas)
+  buildVillageGreen(scene, disposal, atlas)
   buildWatercraft(scene, disposal, atlas, bob)
+  buildAnimals(scene, disposal, bob)
+
+  const composer = new EffectComposer(renderer)
+  composer.addPass(new RenderPass(scene, camera))
+  const ssao = new SSAOPass(scene, camera, 512, 512, 16)
+  ssao.kernelRadius = 0.85
+  ssao.minDistance = 0.015
+  ssao.maxDistance = 0.4
+  composer.addPass(ssao)
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.26, 0.4, 1.08)
+  composer.addPass(bloom)
+  const bokeh = new BokehPass(scene, camera, { focus: 34, aperture: 0.00022, maxblur: 0.0042 })
+  composer.addPass(bokeh)
+  const outputPass = new OutputPass()
+  composer.addPass(outputPass)
+  const fxaa = new FXAAPass()
+  composer.addPass(fxaa)
 
   const projected: ProjectedAnchor[] = built.map((item) => ({
     id: item.id,
@@ -210,6 +269,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     camera.aspect = width / Math.max(1, height)
     camera.updateProjectionMatrix()
     renderer.setSize(width, height, false)
+    composer.setSize(width, height)
   }
   const observer = new ResizeObserver(resize)
   observer.observe(options.world)
@@ -239,10 +299,9 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       controls.target.lerp(goalTarget, blend)
     }
 
-    if (!still()) {
-      atlas.waterNormal.offset.x = motionTime * 0.018
-      atlas.waterNormal.offset.y = motionTime * 0.01
-    }
+    setWaterTime(water, motionTime)
+    setWaterTime(river, motionTime)
+    ;(bokeh.uniforms as { focus: { value: number } }).focus.value = camera.position.distanceTo(controls.target)
     for (const item of bobbers) {
       const target = still()
         ? item.base
@@ -254,7 +313,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
     controls.enableDamping = !reduced
     controls.update()
-    renderer.render(scene, camera)
+    composer.render()
     projectAnchors(camera, options.world, projected)
     if (card && openId) {
       const point = built.find((item) => item.id === openId)?.label
@@ -278,6 +337,12 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       cancelAnimationFrame(frame)
       observer.disconnect()
       controls.dispose()
+      ssao.dispose()
+      bloom.dispose()
+      bokeh.dispose()
+      outputPass.dispose()
+      fxaa.dispose()
+      composer.dispose()
       disposal.dispose()
       hemi.dispose()
       sun.dispose()
@@ -310,6 +375,21 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       if (card && !id) card.hidden = true
     },
   }
+}
+
+async function loadIcons(disposal: Disposal, urls: Array<string | undefined>) {
+  const unique = [...new Set(urls.filter((url): url is string => Boolean(url)))]
+  const loader = new THREE.TextureLoader()
+  const icons = new Map<string, THREE.Texture>()
+  await Promise.all(
+    unique.map(async (url) => {
+      const texture = await loader.loadAsync(url)
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.anisotropy = 8
+      icons.set(url, disposal.tex(texture))
+    }),
+  )
+  return icons
 }
 
 function inert(): Diorama {

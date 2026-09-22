@@ -73,6 +73,46 @@ async function writeWebp(name, buffer) {
     .toFile(`public/textures/${name}.webp`)
 }
 
+function deriveHeight(color) {
+  const height = new Float32Array(SIZE * SIZE)
+  for (let i = 0; i < height.length; i++) {
+    const offset = i * 3
+    height[i] = (color[offset] * 0.3 + color[offset + 1] * 0.5 + color[offset + 2] * 0.2) / 255
+  }
+  return height
+}
+
+function aoFromHeight(height) {
+  const out = Buffer.alloc(SIZE * SIZE * 3)
+  const offsets = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [2, 1],
+    [-2, -1],
+    [1, 2],
+    [-1, -2],
+    [3, 0],
+    [0, -3],
+  ]
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const i = y * SIZE + x
+      const here = height[i]
+      let occlusion = 0
+      for (const [ox, oy] of offsets) {
+        const sx = (x + ox + SIZE) % SIZE
+        const sy = (y + oy + SIZE) % SIZE
+        const diff = height[sy * SIZE + sx] - here
+        if (diff > 0) occlusion += diff
+      }
+      gray(out, i, (1 - Math.min(0.62, occlusion * 0.85)) * 255)
+    }
+  }
+  return out
+}
+
 function normalsFromHeight(height, strength) {
   const out = Buffer.alloc(SIZE * SIZE * 3)
   for (let y = 0; y < SIZE; y++) {
@@ -99,15 +139,15 @@ function siding() {
   const color = Buffer.alloc(SIZE * SIZE * 3)
   const rough = Buffer.alloc(SIZE * SIZE * 3)
   const height = new Float32Array(SIZE * SIZE)
-  const plank = 84
+  const plank = 64
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const i = y * SIZE + x
-      const column = Math.floor(x / plank)
-      const seam = x % plank < 3 || x % plank > plank - 3
-      const tone = hash2(column, 2)
-      const grain = fbm(x * 0.02, y * 0.008 + column)
-      const base = mix(138, 168, tone)
+      const row = Math.floor(y / plank)
+      const seam = y % plank < 4
+      const tone = hash2(4, row)
+      const grain = fbm(x * 0.008 + row, y * 0.02)
+      const base = mix(122, 184, tone)
       let r = base + 18 + grain * 28
       let g = base - 8 + grain * 16
       let b = base - 36 + grain * 10
@@ -122,7 +162,7 @@ function siding() {
       height[i] = (seam ? 0 : 0.65 + grain * 0.35) * (0.85 + tone * 0.15)
     }
   }
-  return { color, rough, normal: normalsFromHeight(height, 3.2) }
+  return { color, rough, height, normal: normalsFromHeight(height, 3.2) }
 }
 
 function weathered() {
@@ -232,7 +272,7 @@ function slate() {
       height[i] = pit * 0.8 + (fleck > 0.75 ? 0.2 : 0)
     }
   }
-  return { color, rough, normal: normalsFromHeight(height, 2.4) }
+  return { color, rough, height, normal: normalsFromHeight(height, 2.4) }
 }
 
 function roof() {
@@ -247,9 +287,9 @@ function roof() {
       const seam = y % course < 3 || (x + shift) % 72 < 2
       const tone = hash2(Math.floor((x + shift) / 72), row)
       const n = noise(x * 0.02, y * 0.02)
-      let r = mix(92, 118, tone) + n * 14
-      let g = mix(72, 90, tone) + n * 10
-      let b = mix(58, 72, tone) + n * 8
+      let r = mix(78, 132, tone) + n * 14
+      let g = mix(62, 102, tone) + n * 10
+      let b = mix(50, 82, tone) + n * 8
       if (seam) {
         r *= 0.7
         g *= 0.68
@@ -334,18 +374,20 @@ function water() {
       const worldX = minX + u * (maxX - minX)
       const i = y * SIZE + x
       const radius = lakeRadius(worldX, worldZ)
-      const edge = smoothstep(0.28, 0.98, radius)
-      const n = fbm(worldX * 0.4, worldZ * 0.4) * 0.04
-      const deep = [26, 104, 114]
-      const shallow = [198, 230, 222]
-      rgb(
-        color,
-        i,
-        mix(deep[0], shallow[0], edge) + n * 255,
-        mix(deep[1], shallow[1], edge) + n * 255,
-        mix(deep[2], shallow[2], edge) + n * 255,
-      )
-      gray(rough, i, mix(42, 150, edge))
+      const edge = smoothstep(0.62, 0.98, radius)
+      const sand = smoothstep(0.92, 1.04, radius)
+      const n = fbm(worldX * 0.55, worldZ * 0.55) * 0.035
+      const deep = [36, 128, 138]
+      const shallow = [168, 214, 204]
+      const shore = [214, 206, 176]
+      let r = mix(deep[0], shallow[0], edge)
+      let g = mix(deep[1], shallow[1], edge)
+      let b = mix(deep[2], shallow[2], edge)
+      r = mix(r, shore[0], sand)
+      g = mix(g, shore[1], sand)
+      b = mix(b, shore[2], sand)
+      rgb(color, i, r + n * 255, g + n * 255, b + n * 255)
+      gray(rough, i, mix(55, 150, Math.max(edge, sand)))
     }
   }
   return { color, rough }
@@ -358,12 +400,13 @@ function waterNormal() {
     for (let x = 0; x < SIZE; x++) {
       const u = x / SIZE
       height[y * SIZE + x] =
-        Math.sin((u * 6 + v * 2) * Math.PI * 2) * 0.45 +
-        Math.sin((u * 3 - v * 5) * Math.PI * 2) * 0.3 +
-        Math.sin((u * 11 + v * 9) * Math.PI * 2) * 0.16
+        Math.sin((u * 9 + v * 4) * Math.PI * 2) * 0.34 +
+        Math.sin((u * 6 - v * 8) * Math.PI * 2) * 0.26 +
+        Math.sin((u * 19 + v * 15) * Math.PI * 2) * 0.2 +
+        Math.sin((u * 33 - v * 24) * Math.PI * 2) * 0.11
     }
   }
-  return normalsFromHeight(height, 1.8)
+  return normalsFromHeight(height, 2.6)
 }
 
 const sets = {
@@ -379,10 +422,24 @@ const sets = {
   water: water(),
 }
 
+const normalStrength = {
+  'wood-weathered': 1.8,
+  'wood-dark': 1.5,
+  limestone: 2.6,
+  gravel: 3.1,
+  roof: 3.6,
+  foliage: 1.15,
+  terrain: 1.6,
+}
+
 for (const [name, set] of Object.entries(sets)) {
   await writeWebp(`${name}-color`, set.color)
   await writeWebp(`${name}-roughness`, set.rough)
+  if (name === 'water') continue
+  const height = set.height ?? deriveHeight(set.color)
   if (set.normal) await writeWebp(`${name}-normal`, set.normal)
+  else await writeWebp(`${name}-normal`, normalsFromHeight(height, normalStrength[name] ?? 2))
+  await writeWebp(`${name}-ao`, aoFromHeight(height))
 }
 await writeWebp('water-normal', waterNormal())
 

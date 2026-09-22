@@ -4,19 +4,29 @@ import { surfaceMaterial } from './assets'
 import type { Disposal } from './disposal'
 import { terrainHeight } from './ground'
 
-const WAYPOINTS: Array<[number, number]> = [
-  [0.4, 12.2],
-  [3.6, 10.6],
-  [7.4, 9.2],
-  [11.2, 8.4],
-  [12.2, 9.0],
-  [14.2, 9.2],
+const ROUTES: Array<Array<[number, number]>> = [
+  [
+    [0.4, 12.2],
+    [3.6, 10.6],
+    [7.4, 9.2],
+    [11.2, 8.4],
+    [12.2, 9.0],
+    [14.2, 9.2],
+  ],
+  [
+    [-1.8, 13.05],
+    [0.6, 13.5],
+    [2.8, 14.15],
+    [4.7, 14.55],
+  ],
 ]
 
 export function distanceToPath(x: number, z: number) {
   let best = Infinity
-  for (let i = 0; i < WAYPOINTS.length - 1; i++) {
-    best = Math.min(best, segmentDistance(x, z, WAYPOINTS[i], WAYPOINTS[i + 1]))
+  for (const route of ROUTES) {
+    for (let i = 0; i < route.length - 1; i++) {
+      best = Math.min(best, segmentDistance(x, z, route[i], route[i + 1]))
+    }
   }
   return best
 }
@@ -32,10 +42,37 @@ function segmentDistance(x: number, z: number, a: [number, number], b: [number, 
 }
 
 export function buildPath(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
-  const points = WAYPOINTS.map(([x, z]) => new THREE.Vector3(x, terrainHeight(x, z) + 0.045, z))
+  const material = surfaceMaterial(disposal, atlas.gravel, {
+    roughness: 1,
+    metalness: 0.02,
+    normalScale: new THREE.Vector2(1.35, 1.35),
+  })
+  material.transparent = true
+  material.polygonOffset = true
+  material.polygonOffsetFactor = -1
+  material.polygonOffsetUnits = -1
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <alphamap_fragment>',
+      `#include <alphamap_fragment>
+       float across = abs(vMapUv.x - 0.5) * 2.0;
+       diffuseColor.a *= 1.0 - smoothstep(0.62, 1.0, across);`,
+    )
+  }
+  material.customProgramCacheKey = () => 'path-edge'
+
+  for (const route of ROUTES) {
+    const mesh = new THREE.Mesh(ribbon(disposal, route, route === ROUTES[0] ? 0.92 : 0.7), material)
+    mesh.receiveShadow = true
+    mesh.castShadow = false
+    parent.add(mesh)
+  }
+}
+
+function ribbon(disposal: Disposal, route: Array<[number, number]>, width: number) {
+  const points = route.map(([x, z]) => new THREE.Vector3(x, terrainHeight(x, z) + 0.045, z))
   const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5)
   const divisions = 48
-  const width = 0.92
   const positions: number[] = []
   const uvs: number[] = []
   const indices: number[] = []
@@ -56,7 +93,7 @@ export function buildPath(parent: THREE.Object3D, disposal: Disposal, atlas: Atl
     left.y = y
     right.y = y
     positions.push(left.x, left.y, left.z, right.x, right.y, right.z)
-    uvs.push(0, t * 10, 1, t * 10)
+    uvs.push(0, t * 8, 1, t * 8)
   }
 
   for (let i = 0; i < divisions; i++) {
@@ -69,14 +106,5 @@ export function buildPath(parent: THREE.Object3D, disposal: Disposal, atlas: Atl
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geometry.setIndex(indices)
   geometry.computeVertexNormals()
-
-  const material = surfaceMaterial(disposal, atlas.gravel, { roughness: 1, metalness: 0.02 })
-  material.polygonOffset = true
-  material.polygonOffsetFactor = -1
-  material.polygonOffsetUnits = -1
-  const mesh = new THREE.Mesh(geometry, material)
-  mesh.receiveShadow = true
-  mesh.castShadow = false
-  parent.add(mesh)
-  return mesh
+  return geometry
 }
