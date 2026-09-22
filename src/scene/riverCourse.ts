@@ -1,4 +1,4 @@
-/** Far-shore outlet, between Queen's and the ferry, running out toward the rim. */
+/** Far-shore outlet, between Queen's and the sailboat, running out toward the rim. */
 export const RIVER_COURSE: Array<[number, number]> = [
   [-3.4, -10.6],
   [-4.4, -12.8],
