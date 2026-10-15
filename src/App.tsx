@@ -132,17 +132,19 @@ export function App() {
   return (
     <main className="page" data-scene-status={status}>
       <header className="intro">
-        <h1>Greg Mac</h1>
-        <nav aria-label="Links">
-          {/* TODO: GitHub handle */}
-          <a
-            href="#"
-            aria-label="GitHub"
-            onClick={(event) => event.preventDefault()}
-          >
-            <GitHubIcon />
-          </a>
-        </nav>
+        <div className="intro-row">
+          <h1>Greg Mac</h1>
+          <nav aria-label="Links">
+            {/* TODO: GitHub handle */}
+            <a
+              href="#"
+              aria-label="GitHub"
+              onClick={(event) => event.preventDefault()}
+            >
+              <GitHubIcon />
+            </a>
+          </nav>
+        </div>
       </header>
 
       <div

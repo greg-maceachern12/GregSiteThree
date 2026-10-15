@@ -1,6 +1,6 @@
 :root {
   color: #2e2a26;
-  background: #e6e0d2;
+  background: #cdd9df;
   font-family: Arial, Helvetica, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -28,18 +28,27 @@ a {
   height: 100svh;
   min-height: 680px;
   overflow: hidden;
-  background: #e6e0d2;
+  background: #cdd9df;
   isolation: isolate;
 }
 
 .intro {
   position: absolute;
   z-index: 3;
-  top: 50%;
-  left: 5%;
-  transform: translateY(-50%);
+  top: 28px;
+  left: 36px;
+  color: #f7f4ec;
+  text-shadow:
+    0 2px 18px rgba(14, 24, 18, 0.55),
+    0 1px 3px rgba(14, 24, 18, 0.45);
   pointer-events: none;
   text-align: left;
+}
+
+.intro-row {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
 }
 
 .intro h1 {
@@ -60,16 +69,18 @@ a {
 .intro nav {
   display: flex;
   gap: 14px;
-  margin: 20px 0 0;
+  margin: 0;
   pointer-events: auto;
+  transform: translateY(0.08em);
 }
 
 .intro nav a {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  opacity: 0.62;
+  opacity: 0.86;
+  filter: drop-shadow(0 2px 10px rgba(14, 24, 18, 0.5));
   transition: opacity 0.2s, transform 0.2s;
 }
 
@@ -79,13 +90,13 @@ a {
 }
 
 .intro nav svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .world {
   position: absolute;
-  inset: 24px -1% 84px 22%;
+  inset: 0;
   touch-action: none;
 }
 
@@ -95,14 +106,6 @@ a {
   inset: 0;
   width: 100%;
   height: 100%;
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent, #000 11% 94%, transparent),
-    linear-gradient(transparent, #000 5% 92%, transparent);
-  mask-image:
-    linear-gradient(90deg, transparent, #000 11% 94%, transparent),
-    linear-gradient(transparent, #000 5% 92%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
 }
 
 .world canvas {
@@ -155,8 +158,8 @@ a {
   z-index: 3;
   left: 0;
   top: 0;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -398,8 +401,8 @@ a {
 .loading {
   position: absolute;
   z-index: 5;
-  bottom: 66px;
-  left: 61%;
+  bottom: 58px;
+  left: 50%;
   width: 160px;
   transform: translateX(-50%);
   pointer-events: none;
@@ -432,9 +435,9 @@ a {
 .footer {
   position: absolute;
   z-index: 5;
-  right: 5%;
-  bottom: 28px;
-  left: 28%;
+  right: 0;
+  bottom: 22px;
+  left: 0;
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -500,6 +503,10 @@ a {
     text-align: center;
   }
 
+  .intro-row {
+    justify-content: center;
+  }
+
   .intro h1 {
     font-size: 48px;
   }
@@ -510,12 +517,11 @@ a {
   }
 
   .intro nav {
-    justify-content: center;
-    margin-top: 12px;
+    transform: translateY(0.06em);
   }
 
   .world {
-    inset: 168px 0 108px;
+    inset: 0;
   }
 
   .loading {

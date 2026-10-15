@@ -6,6 +6,10 @@ export const RIVER_COURSE: Array<[number, number]> = [
   [-6.7, -17.1],
   [-8.4, -19.5],
   [-9.4, -21.4],
+  [-11.2, -26.0],
+  [-13.8, -32.5],
+  [-15.6, -40.0],
+  [-18.0, -49.0],
 ]
 
 const LENGTH = RIVER_COURSE.reduce((total, point, index) => {
@@ -43,12 +47,12 @@ export function distanceToRiver(x: number, z: number) {
 
 /** Bed height along the outlet. The mouth matches the lake; the tip drops away. */
 export function riverBed(along: number) {
-  return 0.04 - along * 0.34
+  return 0.04 - Math.min(1, along * 2.2) * 0.32 - Math.max(0, along - 0.45) * 0.35
 }
 
 /** Level with the lake through the mouth, then stepping down toward the rim. */
 export function riverSurface(along: number) {
-  return 0.144 - smooth(0.2, 1, along) * 0.3
+  return 0.144 - smooth(0.08, 0.45, along) * 0.28 - smooth(0.45, 1, along) * 0.25
 }
 
 function smooth(edge0: number, edge1: number, value: number) {

@@ -107,7 +107,7 @@ await page.keyboard.press('Escape')
 await page.waitForFunction(() => !document.querySelector('.card'))
 
 await openCard(page, 'range')
-await page.mouse.click(40, 40)
+await page.mouse.click(720, 40)
 await page.waitForFunction(() => !document.querySelector('.card'))
 
 await openCard(page, 'ghola')
