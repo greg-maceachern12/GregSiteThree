@@ -22,12 +22,15 @@ export function App() {
   const dioramaRef = useRef<Diorama | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [progress, setProgress] = useState(0)
+  const [revealed, setRevealed] = useState(false)
   const [paused, setPaused] = useState(false)
   const [reduced, setReduced] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const titleId = useId()
+  const progressId = useId()
   const open = cards.find((card) => card.id === openId) ?? null
   const percent = Math.round(progress * 100)
+  const hold = status === 'loading' || (status === 'ready' && !revealed)
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -39,6 +42,16 @@ export function App() {
     media.addEventListener('change', apply)
     return () => media.removeEventListener('change', apply)
   }, [])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setRevealed(true)
+      return
+    }
+    const timer = window.setTimeout(() => setRevealed(true), 800)
+    return () => window.clearTimeout(timer)
+  }, [status])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -130,8 +143,8 @@ export function App() {
   }
 
   return (
-    <main className="page" data-scene-status={status}>
-      <header className="intro">
+    <main className="page" data-scene-status={status} aria-busy={status === 'loading'}>
+      <header className="intro" inert={hold}>
         <div className="intro-row">
           <h1>Greg Mac</h1>
           <nav aria-label="Links">
@@ -153,20 +166,22 @@ export function App() {
         role="region"
         aria-label="Interactive lake"
         aria-busy={status === 'loading'}
+        inert={hold}
       >
-        <div className="preview" aria-hidden="true">
-          <picture>
-            <source media="(max-width: 700px)" srcSet="/map-preview/mobile.webp" />
-            <img
-              src="/map-preview/desktop.webp"
-              alt=""
-              width={2400}
-              height={800}
-              fetchPriority="high"
-              decoding="async"
-            />
-          </picture>
-        </div>
+        {status === 'failed' ? (
+          <div className="preview" aria-hidden="true">
+            <picture>
+              <source media="(max-width: 700px)" srcSet="/map-preview/mobile.webp" />
+              <img
+                src="/map-preview/desktop.webp"
+                alt=""
+                width={2400}
+                height={800}
+                decoding="async"
+              />
+            </picture>
+          </div>
+        ) : null}
         <canvas ref={canvasRef} aria-hidden="true" />
         {cards.map((card) => (
           <button
@@ -239,26 +254,41 @@ export function App() {
       </div>
 
       <p className="sr" role="status">
-        {status === 'loading' ? 'Loading map' : ''}
+        {status === 'loading'
+          ? 'Loading the lake'
+          : status === 'ready'
+            ? 'The lake is ready.'
+            : 'The lake could not be loaded.'}
       </p>
 
-      {status === 'loading' ? (
-        <div className="loading">
-          <span>Loading map</span>
-          <div
-            className="track"
-            role="progressbar"
-            aria-label="Loading map"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-          >
-            <span className="fill" style={{ width: `${percent}%` }} />
+      <div className="loading-screen" aria-hidden={status !== 'loading'}>
+        <div className="loading-body">
+          <LakeMark />
+          <p className="loading-title" aria-hidden="true">Greg Mac</p>
+          <p className="loading-note">A lake house of the places I've worked and lived.</p>
+          <div className="loading-meter">
+            <div className="loading-meter-row">
+              <span id={progressId}>Loading the lake</span>
+              <span className="loading-percent" aria-hidden="true">{percent > 0 ? `${percent}%` : ''}</span>
+            </div>
+            <div
+              className="loading-track"
+              role="progressbar"
+              aria-labelledby={progressId}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+            >
+              <span
+                className={percent === 0 ? 'loading-fill is-waiting' : 'loading-fill'}
+                style={percent === 0 ? undefined : { width: `${percent}%` }}
+              />
+            </div>
           </div>
         </div>
-      ) : null}
+      </div>
 
-      <footer className="footer">
+      <footer className="footer" inert={hold}>
         <div className="controls">
           <button
             type="button"
@@ -284,6 +314,16 @@ export function App() {
         </div>
       </footer>
     </main>
+  )
+}
+
+function LakeMark() {
+  return (
+    <svg className="loading-mark" viewBox="0 0 120 72" aria-hidden="true">
+      <ellipse cx="60" cy="40" rx="46" ry="22" fill="#e6e0d2" />
+      <ellipse cx="60" cy="38" rx="34" ry="15" fill="#3f7c82" />
+      <ellipse className="loading-ripple" cx="60" cy="38" rx="34" ry="15" />
+    </svg>
   )
 }
 
