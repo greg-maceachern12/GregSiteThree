@@ -4,7 +4,7 @@ export const LAKE_RX = 17
 export const LAKE_RZ = 12.2
 export const LAKE_CZ = -0.6
 export const WATER_Y = 0.14
-export const FOG = '#e6e0d2'
+export const FOG = '#cdd9df'
 export const WATER_BOUNDS = { minX: -18.2, maxX: 18.2, minZ: -14.4, maxZ: 13.2 }
 
 export function smoothstep(edge0: number, edge1: number, value: number) {
@@ -62,6 +62,18 @@ export function terrainHeight(x: number, z: number) {
   const riseZ = z - 17.6
   const rise = Math.exp(-(riseX * riseX) / 24 - (riseZ * riseZ) / 16)
   height += rise * 1.35 * land
+
+  // Rolling wooded foothills and distant mountain ridges around the outer basin.
+  const foothills = smoothstep(1.62, 3.2, radius)
+  const ridge = smoothstep(2.15, 4.4, radius)
+  const ridges =
+    Math.max(0, noise(x * 0.042 + 2.1, z * 0.042 - 1.7) - 0.18) * 6.5 +
+    (noise(x * 0.095 - 3.4, z * 0.095 + 2.8) - 0.35) * 2.4 +
+    (noise(x * 0.21 + 0.7, z * 0.21 - 0.9) - 0.45) * 0.75
+  // Keep a lower valley corridor in the north-west where the outlet creek winds away.
+  const valley = 1 - 0.65 * Math.exp(-((x + 11) * (x + 11)) / 95) * smoothstep(-8, -22, z)
+  height += (foothills * 1.6 + foothills * ridges * 0.68 + ridge * 3.8) * valley * land
+
   height = carveRiver(height, x, z, radius)
 
   return height

@@ -43,7 +43,7 @@ export function buildRiver(parent: THREE.Object3D, disposal: Disposal, atlas: At
 }
 
 function ribbon(disposal: Disposal, curve: THREE.CatmullRomCurve3) {
-  const divisions = 90
+  const divisions = 140
   const across = 6
   const positions: number[] = []
   const uvs: number[] = []
@@ -57,7 +57,7 @@ function ribbon(disposal: Disposal, curve: THREE.CatmullRomCurve3) {
   for (let i = 0; i <= divisions; i++) {
     const t = i / divisions
     // Wider than the channel: the carved banks rise through the edges and shape the shoreline.
-    const width = 3.4 - t * 1.5
+    const width = 3.4 - Math.min(1, t * 1.35) * 1.3
     const y = riverSurface(t)
     for (let j = 0; j <= across; j++) {
       const offset = (j / across - 0.5) * width
@@ -140,17 +140,17 @@ function shadeRiver(material: THREE.MeshStandardMaterial) {
          uniform vec3 uRimColor;
          ${REFLECT_PARS_FRAGMENT}`,
       )
-      .replace('#include <opaque_fragment>', reflectFragment('1.0 - max(rim, smoothstep(0.84, 1.0, vAlong))'))
+      .replace('#include <opaque_fragment>', reflectFragment('1.0 - max(rim, smoothstep(0.92, 1.0, vAlong))'))
       .replace(
         '#include <color_fragment>',
         `${WATER_COLOR_CHUNK}
          vec2 streakUv = vNormalMapUv * vec2(3.0, 3.0) - vFlow * uTime * 38.0;
          float streak = texture2D(normalMap, streakUv).x * texture2D(normalMap, streakUv * 1.7 + 0.3).y;
-         float rapids = smoothstep(0.3, 0.55, vAlong) * (1.0 - smoothstep(0.0, 0.16, depth));
+         float rapids = smoothstep(0.12, 0.35, vAlong) * (1.0 - smoothstep(0.0, 0.16, depth));
          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.93), smoothstep(0.5, 0.8, streak) * (0.18 + rapids * 0.5));
-         float rim = smoothstep(22.0, 33.0, length(vRimWorld.xz));
-         diffuseColor.rgb = mix(diffuseColor.rgb, uRimColor, max(rim, smoothstep(0.84, 1.0, vAlong)));
-         diffuseColor.a *= smoothstep(0.03, 0.16, vAlong);`,
+         float rim = smoothstep(70.0, 100.0, length(vRimWorld.xz));
+         diffuseColor.rgb = mix(diffuseColor.rgb, uRimColor, max(rim, smoothstep(0.92, 1.0, vAlong)));
+         diffuseColor.a *= smoothstep(0.015, 0.07, vAlong);`,
       )
       .replace('#include <roughnessmap_fragment>', WATER_ROUGHNESS_CHUNK)
       .replace(
@@ -181,29 +181,32 @@ function addStones(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas, cur
   }
   // Boulders along both banks.
   for (const [t, side, scale] of [
-    [0.3, -1, 0.62],
-    [0.36, 1, 0.5],
-    [0.5, 1, 0.55],
-    [0.58, -1, 0.72],
-    [0.66, -1, 0.5],
-    [0.72, 1, 0.66],
-    [0.8, 1, 0.48],
-    [0.86, -1, 0.56],
+    [0.11, -1, 0.62],
+    [0.14, 1, 0.5],
+    [0.19, 1, 0.55],
+    [0.22, -1, 0.72],
+    [0.26, -1, 0.5],
+    [0.29, 1, 0.66],
+    [0.33, 1, 0.48],
+    [0.37, -1, 0.56],
+    [0.48, 1, 0.68],
+    [0.58, -1, 0.74],
+    [0.7, 1, 0.62],
   ] as const) {
     place(t, side * (1.05 + rand() * 0.35), scale)
   }
   // Pebbles at the waterline.
-  for (let i = 0; i < 26; i++) {
-    const t = 0.24 + rand() * 0.62
+  for (let i = 0; i < 36; i++) {
+    const t = 0.08 + rand() * 0.72
     const side = rand() > 0.5 ? 1 : -1
     place(t, side * (0.75 + rand() * 0.45), 0.12 + rand() * 0.14)
   }
   // Stepping stones breaking the surface mid-stream.
   for (const [t, shift, scale] of [
-    [0.44, 0.18, 0.34],
-    [0.47, -0.22, 0.28],
-    [0.62, -0.1, 0.38],
-    [0.68, 0.2, 0.26],
+    [0.16, 0.18, 0.34],
+    [0.175, -0.22, 0.28],
+    [0.24, -0.1, 0.38],
+    [0.27, 0.2, 0.26],
   ] as const) {
     place(t, shift, scale, riverSurface(t) - 0.04)
   }
@@ -272,7 +275,7 @@ function addReeds(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas, curv
 
 /** A plank footbridge arching over the stream. */
 function addBridge(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas, curve: THREE.CatmullRomCurve3) {
-  const t = 0.53
+  const t = 0.205
   const center = curve.getPoint(t)
   const tangent = curve.getTangent(t).setY(0).normalize()
   const half = 1.9

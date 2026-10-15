@@ -132,29 +132,19 @@ export function App() {
   return (
     <main className="page" data-scene-status={status}>
       <header className="intro">
-        <h1>Greg Mac</h1>
-        <p>I build websites for artists and labels.</p>
-        <nav aria-label="Links">
-          <a href="https://greg.so" target="_blank" rel="noreferrer" aria-label="greg.so">
-            <SiteIcon />
-          </a>
-          {/* TODO: GitHub handle */}
-          <a
-            href="#"
-            aria-label="GitHub"
-            onClick={(event) => event.preventDefault()}
-          >
-            <GitHubIcon />
-          </a>
-          {/* TODO: LinkedIn handle */}
-          <a
-            href="#"
-            aria-label="LinkedIn"
-            onClick={(event) => event.preventDefault()}
-          >
-            <LinkedInIcon />
-          </a>
-        </nav>
+        <div className="intro-row">
+          <h1>Greg Mac</h1>
+          <nav aria-label="Links">
+            {/* TODO: GitHub handle */}
+            <a
+              href="#"
+              aria-label="GitHub"
+              onClick={(event) => event.preventDefault()}
+            >
+              <GitHubIcon />
+            </a>
+          </nav>
+        </div>
       </header>
 
       <div
@@ -308,33 +298,12 @@ function FourPaneMark() {
   )
 }
 
-function SiteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <ellipse cx="12" cy="12" rx="3.5" ry="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 12h16M5.5 8h13M5.5 16h13" fill="none" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  )
-}
-
 function GitHubIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="currentColor"
         d="M12 2.2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.6.07-.6 1 .07 1.52 1.02 1.52 1.02.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.6 1.03 2.69 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.86v2.76c0 .26.18.58.69.48A10 10 0 0 0 12 2.2Z"
-      />
-    </svg>
-  )
-}
-
-function LinkedInIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M6.5 9.2H4.2V19h2.3V9.2ZM5.35 4.2A1.35 1.35 0 1 0 5.36 6.9 1.35 1.35 0 0 0 5.35 4.2ZM19.8 19h-2.3v-4.8c0-1.15-.02-2.62-1.6-2.62-1.6 0-1.85 1.25-1.85 2.54V19h-2.3V9.2h2.2v1.34h.03c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.52V19Z"
       />
     </svg>
   )

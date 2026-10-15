@@ -17,7 +17,7 @@ export function createEasterEggs(
   world: HTMLElement,
   scene: THREE.Scene,
   camera: THREE.Camera,
-  shore: THREE.Object3D,
+  _shore: THREE.Object3D,
   targets: SecretTarget[],
   tree: TreeTarget,
   disposal: Disposal,
@@ -102,8 +102,6 @@ export function createEasterEggs(
     raycaster.setFromCamera(ndc, camera)
     if (!raycaster.ray.intersectPlane(plane, point)) return null
     if (lakeRadius(point.x, point.z) > 0.96 || terrainHeight(point.x, point.z) >= WATER_Y - 0.03) return null
-    const land = raycaster.intersectObject(shore, false)[0]
-    if (land && land.distance < point.distanceTo(camera.position) - 0.02) return null
     return point.clone()
   }
 

@@ -89,7 +89,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(FOG)
 
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 140)
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220)
   camera.position.copy(HOME_POS)
 
   let mobile = window.matchMedia('(max-width: 700px)').matches
