@@ -47,20 +47,12 @@ export function placeCard(
   const width = world.clientWidth
   const height = world.clientHeight
   const ndc = point.clone().project(camera)
-  let x = (ndc.x * 0.5 + 0.5) * width
-  let y = (-ndc.y * 0.5 + 0.5) * height
-  const cardWidth = card.offsetWidth || 278
-  const cardHeight = card.offsetHeight || 140
-  x = Math.min(width - cardWidth / 2 - 12, Math.max(cardWidth / 2 + 12, x))
-  const above = y - cardHeight - 28
-  if (above < 12) {
-    card.style.transform = 'translate(-50%, 18px)'
-    y = Math.min(height - cardHeight - 12, y)
-  } else {
-    card.style.transform = 'translate(-50%, -100%)'
-    y = Math.max(cardHeight + 12, y - 22)
+  const anchorX = (ndc.x * 0.5 + 0.5) * width
+  const anchorY = (-ndc.y * 0.5 + 0.5) * height
+  if (!card.dataset.expanded) {
+    card.dataset.expanded = 'true'
+    card.style.setProperty('--origin-x', `${Math.round(anchorX - width * 0.5)}px`)
+    card.style.setProperty('--origin-y', `${Math.round(anchorY - height * 0.5)}px`)
   }
-  card.style.left = `${x}px`
-  card.style.top = `${y}px`
   card.hidden = false
 }
