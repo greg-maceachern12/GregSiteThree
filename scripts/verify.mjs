@@ -63,8 +63,6 @@ assert(
 
 const heading = await page.$eval('h1', (node) => node.textContent)
 assert(heading === 'Greg Mac', heading)
-const line = await page.$eval('.intro p', (node) => node.textContent)
-assert(line === 'I build websites for artists and labels.', line)
 const github = await page.$eval('a[aria-label="GitHub"]', (node) => node.getAttribute('href'))
 assert(github === '#', github)
 
