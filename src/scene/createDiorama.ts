@@ -365,7 +365,7 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
     if (!dragging) {
       const focusId = openId ?? hovered
-      const focus = built.find((item) => item.id === focusId)?.focus
+      const focus = (openId ? null : built.find((item) => item.id === focusId)?.focus) ?? null
       goalPos.copy(restPos)
       goalTarget.copy(restTarget)
       if (focus) {
