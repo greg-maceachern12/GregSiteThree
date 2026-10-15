@@ -29,6 +29,7 @@ export function App() {
   const openIndex = openId ? cards.findIndex((card) => card.id === openId) : -1
   const open = openIndex >= 0 ? cards[openIndex] : null
   const percent = Math.round(progress * 100)
+  const hold = status === 'loading'
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -145,8 +146,13 @@ export function App() {
   }
 
   return (
-    <main className="page" data-scene-status={status} data-modal-open={open ? 'true' : undefined}>
-      <header className="intro">
+    <main
+      className="page"
+      data-scene-status={status}
+      data-modal-open={open ? 'true' : undefined}
+      aria-busy={status === 'loading'}
+    >
+      <header className="intro" inert={hold}>
         <div className="intro-row">
           <h1>Greg Mac</h1>
           <nav aria-label="Links">
@@ -168,20 +174,22 @@ export function App() {
         role="region"
         aria-label="Interactive lake"
         aria-busy={status === 'loading'}
+        inert={hold}
       >
-        <div className="preview" aria-hidden="true">
-          <picture>
-            <source media="(max-width: 700px)" srcSet="/map-preview/mobile.webp" />
-            <img
-              src="/map-preview/desktop.webp"
-              alt=""
-              width={2400}
-              height={800}
-              fetchPriority="high"
-              decoding="async"
-            />
-          </picture>
-        </div>
+        {status === 'failed' ? (
+          <div className="preview" aria-hidden="true">
+            <picture>
+              <source media="(max-width: 700px)" srcSet="/map-preview/mobile.webp" />
+              <img
+                src="/map-preview/desktop.webp"
+                alt=""
+                width={2400}
+                height={800}
+                decoding="async"
+              />
+            </picture>
+          </div>
+        ) : null}
         <canvas ref={canvasRef} aria-hidden="true" />
         {cards.map((card) => {
           const isMilestone = !card.place
@@ -334,26 +342,28 @@ export function App() {
       </div>
 
       <p className="sr" role="status">
-        {status === 'loading' ? 'Loading map' : ''}
+        {status === 'loading'
+          ? 'Loading the lake'
+          : status === 'ready'
+            ? 'The lake is ready.'
+            : 'The lake could not be loaded.'}
       </p>
 
-      {status === 'loading' ? (
-        <div className="loading">
-          <span>Loading map</span>
-          <div
-            className="track"
-            role="progressbar"
-            aria-label="Loading map"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-          >
-            <span className="fill" style={{ width: `${percent}%` }} />
-          </div>
+      <div className="loading-screen" aria-hidden={status !== 'loading'}>
+        <LakeMark />
+        <div
+          className="loading-track"
+          role="progressbar"
+          aria-label="Loading the lake"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+        >
+          <span className="loading-fill" style={{ width: `${percent}%` }} />
         </div>
-      ) : null}
+      </div>
 
-      <footer className="footer">
+      <footer className="footer" inert={hold}>
         <div className="controls">
           <button
             type="button"
@@ -379,6 +389,14 @@ export function App() {
         </div>
       </footer>
     </main>
+  )
+}
+
+function LakeMark() {
+  return (
+    <svg className="loading-mark" viewBox="0 0 64 40" aria-hidden="true">
+      <ellipse cx="32" cy="20" rx="22" ry="12" fill="#3f7c82" />
+    </svg>
   )
 }
 
