@@ -28,7 +28,7 @@ const TREE_KEEP: Array<[number, number, number]> = [
 ]
 
 export function buildShore(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
-  const geometry = disposal.geo(new THREE.PlaneGeometry(78, 78, 150, 150))
+  const geometry = disposal.geo(new THREE.PlaneGeometry(210, 210, 140, 140))
   geometry.rotateX(-Math.PI / 2)
   const position = geometry.attributes.position
   for (let i = 0; i < position.count; i++) {
@@ -73,8 +73,8 @@ const fogColor = new THREE.Color(FOG)
 function shadeGround(material: THREE.MeshStandardMaterial) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uRimColor = { value: fogColor }
-    shader.uniforms.uRimStart = { value: 22 }
-    shader.uniforms.uRimEnd = { value: 33 }
+    shader.uniforms.uRimStart = { value: 72 }
+    shader.uniforms.uRimEnd = { value: 102 }
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -113,6 +113,9 @@ function shadeGround(material: THREE.MeshStandardMaterial) {
          vec3 lush = diffuseColor.rgb * vec3(0.72, 0.86, 0.64);
          vec3 dry = diffuseColor.rgb * vec3(1.02, 0.96, 0.7);
          diffuseColor.rgb = mix(lush, dry, smoothstep(-0.6, 0.8, patchy) * 0.8) * (0.94 + fine * 0.06);
+         float upland = smoothstep(1.4, 4.5, vRimWorld.y);
+         vec3 moss = diffuseColor.rgb * vec3(0.58, 0.78, 0.54);
+         diffuseColor.rgb = mix(diffuseColor.rgb, moss, upland * 0.65);
          diffuseColor.rgb = mix(diffuseColor.rgb, sandColor * grain, vSplat.r * 0.92);
          diffuseColor.rgb = mix(diffuseColor.rgb, wetColor * grain, vSplat.b * 0.8);
          diffuseColor.rgb = mix(diffuseColor.rgb, dirtColor, vSplat.g * 0.55);`,
@@ -152,7 +155,10 @@ function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
     })),
   ]
   const saplings = plantTrees(200, 90, 0.85, 1.08, 1.58, 0.48, 0.85, canopy)
-  const trees = [...canopy, ...saplings]
+  const midwoods = plantTrees(340, 211, 1.85, 1.55, 2.75, 1.25, 2.15, [], 44, 38)
+  const foothills = plantTrees(280, 263, 2.35, 2.55, 4.1, 1.4, 2.45, [], 58, 50)
+  const ridges = plantTrees(160, 319, 3.0, 3.8, 5.4, 1.6, 2.75, [], 78, 68)
+  const trees = [...canopy, ...saplings, ...midwoods, ...foothills, ...ridges]
   if (canopy.length < 20) {
     throw new Error(`Expected at least 20 shore pines, found ${canopy.length}`)
   }
@@ -183,8 +189,10 @@ function addPines(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
 }
 
 function addBirches(parent: THREE.Object3D, disposal: Disposal, pines: TreeSpot[]) {
-  const birches = plantTrees(48, 131, 1.3, 1.1, 1.48, 0.8, 1.15, pines)
-  const selected = birches.reduce((best, tree) =>
+  const innerBirches = plantTrees(48, 131, 1.3, 1.1, 1.48, 0.8, 1.15, pines)
+  const outerBirches = plantTrees(48, 179, 2.5, 1.5, 3.3, 0.95, 1.45, [], 48, 40)
+  const birches = [...innerBirches, ...outerBirches]
+  const selected = innerBirches.reduce((best, tree) =>
     Math.hypot(tree.x - 1.5, tree.z - 15.6) < Math.hypot(best.x - 1.5, best.z - 15.6) ? tree : best)
   const parts: Array<{ mesh: THREE.InstancedMesh; index: number }> = []
   const leaves = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.82, metalness: 0 })
@@ -251,7 +259,7 @@ function addGrass(parent: THREE.Object3D, disposal: Disposal) {
     if (village.some(({ position: [cx, cz] }) => Math.hypot(x - cx, z - cz) < 0.75)) continue
     if (distanceToPath(x, z) < 0.55) continue
     if (distanceToRiver(x, z) < 1.5) continue
-    const scale = 0.7 + rand() * 0.7
+    const scale = 0.7 + rand() * 0.75
     spots.push({ x, z, scale, yaw: rand() * Math.PI * 2, leaf: false, variant: 0, sx: scale, sy: scale * (0.8 + rand() * 0.5), sz: scale })
   }
   const material = standard(disposal, { color: '#ffffff', vertexColors: true, roughness: 0.92, metalness: 0 })
@@ -274,14 +282,16 @@ function plantTrees(
   minScale: number,
   maxScale: number,
   avoid: TreeSpot[],
+  spanX = 32,
+  spanZ = 28,
 ) {
   const rand = mulberry32(seed)
   const spots: TreeSpot[] = []
   let guard = 0
-  while (spots.length < count && guard < 40000) {
+  while (spots.length < count && guard < count * 35) {
     guard += 1
-    const x = (rand() * 2 - 1) * 32
-    const z = (rand() * 2 - 1) * 28
+    const x = (rand() * 2 - 1) * spanX
+    const z = (rand() * 2 - 1) * spanZ
     const radius = lakeRadius(x, z)
     if (radius < minRadius || radius > maxRadius) continue
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach)) continue
@@ -311,8 +321,14 @@ function addGroundCover(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas
   const grassMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.95 })
   const shrubMat = surfaceMaterial(disposal, atlas.foliage, { roughness: 0.88 })
   const petal = standard(disposal, { color: '#ffffff', roughness: 0.7, metalness: 0.02 })
-  const shrubs = scatter(26, 63, 1.16, 1.62, 1.7, 0.95)
-  const flowers = scatter(34, 11, 1.04, 1.3, 0.85, 1)
+  const shrubs = [
+    ...scatter(26, 63, 1.16, 1.62, 1.7, 0.95),
+    ...scatter(75, 163, 1.62, 3.4, 2.2, 1, 52),
+  ]
+  const flowers = [
+    ...scatter(34, 11, 1.04, 1.3, 0.85, 1),
+    ...scatter(48, 111, 1.35, 2.6, 1.8, 1, 44),
+  ]
   const tint = mulberry32(8)
 
   placeInstances(parent, shrubGeometry(disposal), shrubMat, shrubs, true, (color) => {
@@ -328,14 +344,14 @@ function addGroundCover(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas
   })
 }
 
-function scatter(count: number, seed: number, minRadius: number, maxRadius: number, spacing: number, keep: number) {
+function scatter(count: number, seed: number, minRadius: number, maxRadius: number, spacing: number, keep: number, span = 30) {
   const rand = mulberry32(seed)
   const spots: TreeSpot[] = []
   let guard = 0
   while (spots.length < count && guard < count * 90) {
     guard += 1
-    const x = (rand() * 2 - 1) * 30
-    const z = (rand() * 2 - 1) * 30
+    const x = (rand() * 2 - 1) * span
+    const z = (rand() * 2 - 1) * span
     const radius = lakeRadius(x, z)
     if (radius < minRadius || radius > maxRadius) continue
     if (CLEARINGS.some(([cx, cz, reach]) => Math.hypot(x - cx, z - cz) < reach * keep)) continue
@@ -447,6 +463,25 @@ function addRocks(parent: THREE.Object3D, disposal: Disposal, atlas: Atlas) {
       x,
       z,
       scale: 0.55 + rand() * 0.7,
+      yaw: rand() * Math.PI * 2,
+      variant: Math.floor(rand() * 3),
+    })
+  }
+
+  // Outcrops along the wooded foothills and outer ridges.
+  let ridgeGuard = 0
+  while (spots.length < 110 && ridgeGuard < 9000) {
+    ridgeGuard += 1
+    const x = (rand() * 2 - 1) * 68
+    const z = (rand() * 2 - 1) * 58
+    const radius = lakeRadius(x, z)
+    if (radius < 1.65 || radius > 4.2) continue
+    if (distanceToRiver(x, z) < 2.2) continue
+    if (spots.some((spot) => Math.hypot(spot.x - x, spot.z - z) < 2.4)) continue
+    spots.push({
+      x,
+      z,
+      scale: 0.95 + rand() * 1.55,
       yaw: rand() * Math.PI * 2,
       variant: Math.floor(rand() * 3),
     })
