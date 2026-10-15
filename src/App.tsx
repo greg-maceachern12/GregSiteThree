@@ -249,10 +249,6 @@ export function App() {
               aria-labelledby={titleId}
             >
               <div className="card-topbar">
-                <div className="card-badges">
-                  {open.category ? <span className="card-category">{open.category}</span> : null}
-                  {open.location ? <span className="card-location">{open.location}</span> : null}
-                </div>
                 <button
                   type="button"
                   className="close"
@@ -283,14 +279,6 @@ export function App() {
 
               {open.detail ? <p className="detail">{open.detail}</p> : null}
               {open.summary ? <p className="card-summary">{open.summary}</p> : null}
-
-              {open.highlights && open.highlights.length > 0 ? (
-                <ul className="card-highlights" aria-label="Highlights">
-                  {open.highlights.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              ) : null}
 
               <div className="card-footer">
                 {open.href ? (
