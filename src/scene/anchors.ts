@@ -49,7 +49,10 @@ export function placeCard(
   const ndc = point.clone().project(camera)
   const anchorX = (ndc.x * 0.5 + 0.5) * width
   const anchorY = (-ndc.y * 0.5 + 0.5) * height
-  card.style.setProperty('--origin-x', `${Math.round(anchorX - width * 0.5)}px`)
-  card.style.setProperty('--origin-y', `${Math.round(anchorY - height * 0.5)}px`)
+  if (!card.dataset.expanded) {
+    card.dataset.expanded = 'true'
+    card.style.setProperty('--origin-x', `${Math.round(anchorX - width * 0.5)}px`)
+    card.style.setProperty('--origin-y', `${Math.round(anchorY - height * 0.5)}px`)
+  }
   card.hidden = false
 }

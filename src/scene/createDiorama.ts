@@ -56,7 +56,8 @@ export type Diorama = {
 
 const HOME_POS = new THREE.Vector3(2.2, 23.5, 29.5)
 const HOME_TARGET = new THREE.Vector3(0.8, 0.45, 1.4)
-const SHIFT = new THREE.Vector3()
+const PAN_MS = 1200
+const PAN_LIMIT = 5.5
 type Built = {
   id: string
   label: THREE.Vector3
@@ -269,7 +270,6 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
   let paused = false
   let reduced = options.reducedMotion
-  let hovered: string | null = null
   let openId: string | null = null
   let card: HTMLElement | null = null
   let frame = 0
@@ -285,10 +285,67 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
   let sampledFrames = 0
   const restPos = HOME_POS.clone()
   const restTarget = HOME_TARGET.clone()
-  const goalPos = HOME_POS.clone()
-  const goalTarget = HOME_TARGET.clone()
   let dragging = false
   let motionTime = 0
+  let pan: {
+    fromPos: THREE.Vector3
+    fromTarget: THREE.Vector3
+    toPos: THREE.Vector3
+    toTarget: THREE.Vector3
+    elapsed: number
+  } | null = null
+
+  const framedPose = (focus: THREE.Vector3 | null) => {
+    const toPos = restPos.clone()
+    const toTarget = restTarget.clone()
+    if (!focus) return { toPos, toTarget }
+    const travel = focus.clone().sub(restTarget)
+    const distance = travel.length()
+    if (distance > PAN_LIMIT) travel.multiplyScalar(PAN_LIMIT / distance)
+    toPos.add(travel)
+    toTarget.add(travel)
+    return { toPos, toTarget }
+  }
+
+  const startPan = (focus: THREE.Vector3 | null) => {
+    const { toPos, toTarget } = framedPose(focus)
+    if (reduced) {
+      pan = null
+      camera.position.copy(toPos)
+      controls.target.copy(toTarget)
+      controls.update()
+      settling = false
+      return
+    }
+    const same =
+      camera.position.distanceToSquared(toPos) < 0.0004 &&
+      controls.target.distanceToSquared(toTarget) < 0.0004
+    if (same) {
+      pan = null
+      settling = false
+      return
+    }
+    pan = {
+      fromPos: camera.position.clone(),
+      fromTarget: controls.target.clone(),
+      toPos,
+      toTarget,
+      elapsed: 0,
+    }
+    settling = true
+  }
+
+  const applyPan = (dt: number) => {
+    if (!pan) return
+    const step = dt > 0 ? Math.min(0.05, dt) : 0.016
+    pan.elapsed += step
+    const t = Math.min(1, pan.elapsed / (PAN_MS / 1000))
+    const eased = t * t * (3 - 2 * t)
+    camera.position.lerpVectors(pan.fromPos, pan.toPos, eased)
+    controls.target.lerpVectors(pan.fromTarget, pan.toTarget, eased)
+    settling = t < 1
+    if (t >= 1) pan = null
+  }
 
   const still = () => paused || reduced
   const schedule = () => {
@@ -315,6 +372,8 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
 
   controls.addEventListener('start', () => {
     dragging = true
+    pan = null
+    settling = false
     invalidate()
   })
   controls.addEventListener('end', () => {
@@ -363,24 +422,6 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
     lastRender = now
     if (!still()) motionTime += dt
 
-    if (!dragging) {
-      const focusId = openId ?? hovered
-      const focus = (openId ? null : built.find((item) => item.id === focusId)?.focus) ?? null
-      goalPos.copy(restPos)
-      goalTarget.copy(restTarget)
-      if (focus) {
-        SHIFT.copy(focus).sub(restTarget).multiplyScalar(0.15)
-        goalPos.add(SHIFT)
-        goalTarget.add(SHIFT)
-      }
-      const blend = 1 - Math.exp(-3.4 * dt)
-      camera.position.lerp(goalPos, blend)
-      controls.target.lerp(goalTarget, blend)
-      settling = camera.position.distanceToSquared(goalPos) > 0.00001 || controls.target.distanceToSquared(goalTarget) > 0.00001
-    } else {
-      settling = false
-    }
-
     setWaterTime(water, motionTime)
     setWaterTime(river, motionTime)
     windUniforms.uWind.value = motionTime
@@ -394,8 +435,9 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
         : target
     }
 
-    controls.enableDamping = !reduced
+    controls.enableDamping = !reduced && !pan
     controls.update()
+    if (!dragging) applyPan(dt)
     easterEggs.update()
     if (!animating) reflection.update(renderer, scene, camera)
     composer.render()
@@ -475,7 +517,8 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       invalidate()
     },
     resetView() {
-      hovered = null
+      pan = null
+      settling = false
       restPos.copy(HOME_POS)
       restTarget.copy(HOME_TARGET)
       camera.position.copy(HOME_POS)
@@ -483,14 +526,16 @@ export async function createDiorama(canvas: HTMLCanvasElement, options: DioramaO
       controls.update()
       invalidate()
     },
-    setHovered(id) {
-      hovered = id
-      invalidate()
-    },
+    setHovered() {},
     setCard(id, element) {
+      const changed = openId !== id
       openId = id
       card = element
       if (card && !id) card.hidden = true
+      if (changed) {
+        const focus = id ? built.find((item) => item.id === id)?.focus ?? null : null
+        startPan(focus)
+      }
       invalidate()
     },
   }
